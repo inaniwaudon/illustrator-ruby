@@ -1,40 +1,38 @@
+import "./polyfill";
 import { RubyInfo } from "./ruby";
 
-// display a error message
-const displayError = (e: Error) => {
-  alert("Error!\n" + e.message);
-  return false;
-};
-
-const unitConvert = (size: string | null, basesize: number, basex: number) => {
-  if (size == null || isNaN(parseFloat(size))) {
-    return basesize * basex;
+const convertUnit = (size: string | null, baseSize: number, ratio: number) => {
+  if (size === null || isNaN(parseFloat(size))) {
+    return baseSize * ratio;
   }
   const num = parseFloat(size);
   const unit = size.replace(/[0-9]*/, "").match(/pt|cm|mm|Q|H|px|%/);
-  if (unit != null) {
+  const mmPerPt = 2.8346;
+  if (unit !== null) {
     switch (unit[0]) {
       case "pt":
         return num;
-      case "cm":
-        return num * 28.346;
       case "mm":
-        return num * 2.8346;
+        return num * mmPerPt;
+      case "cm":
+        return num * mmPerPt * 10;
       case "Q":
-        return num * 2.8346 * 0.25;
       case "H":
-        return num * 2.8346 * 0.25;
+        return num * mmPerPt * 0.25;
       case "px":
         return num * 0.75;
       case "%":
-        return (num / 100) * basesize;
+        return (num / 100) * baseSize;
     }
   }
   // TODO:
   return 0;
 };
 
-var sutegana = [
+const suteganaList: {
+  before: string;
+  after: string;
+}[] = [
   { before: unescape("%u3041"), after: unescape("%u3042") },
   { before: unescape("%u3043"), after: unescape("%u3044") },
   { before: unescape("%u3045"), after: unescape("%u3046") },
@@ -76,15 +74,14 @@ var sutegana = [
   { before: unescape("%u31F7%u309A"), after: unescape("%u30D7") },
 ];
 
-function suteganaConvert(beforeText) {
-  for (var key in sutegana)
-    beforeText = beforeText.replace(sutegana[key].before, sutegana[key].after);
-  return beforeText;
-}
+const suteganaConvert = (beforeText: string) =>
+  suteganaList.reduce(
+    (previous, sutegana) => previous.replace(sutegana.before, sutegana.after),
+    beforeText
+  );
 
 const CR = String.fromCharCode(13);
 const LF = String.fromCharCode(10);
-
 const noGlyphs = {
   space: unescape("%u0020"),
   zenkakuSpace: unescape("%u3000"),
@@ -94,215 +91,176 @@ const noGlyphs = {
   tab: "\t",
 };
 
-const load = () => {
+const rubyDelimiters = {
+  from: "[",
+  to: "]",
+  split: "|",
+} as const;
+const attributeDelimiters = {
+  from: "(",
+  to: ")",
+  split: "|",
+} as const;
+
+const getSelectedTextFrame = () => {
   // check the selected objects
-  let finishObj, baseObj: any | null;
+  let finish: any | null = null;
+  let base: TextFrame | null = null;
   for (const selectedObj of activeDocument.selection) {
     if (
-      selectedObj.typename == "TextFrame" &&
+      selectedObj.typename === "TextFrame" &&
       selectedObj.name.match(/finish/) != null
     ) {
-      finishObj = selectedObj;
+      finish = selectedObj;
     }
     if (
-      selectedObj.typename == "TextFrame" &&
+      selectedObj.typename === "TextFrame" &&
       selectedObj.name.match(/base/) != null
     ) {
-      baseObj = selectedObj;
+      base = selectedObj;
     }
   }
+  return { base, finish };
+};
 
-  // exit if finish or base text frame does not exist
-  if (finishObj == null || baseObj == null) {
-    displayError(
-      new Error(
-        'Please, select the two object of textframe including "finish" and "base" in the name'
-      )
-    );
-    return false;
-  }
-
-  var baseText: string = baseObj.textRange.contents;
-  var rubyGroup = activeDocument.groupItems.add();
-  var direction =
-    finishObj.orientation == TextOrientation.VERTICAL
-      ? "vertical"
-      : "horizontal";
-
-  let definedFont: string | null = null;
+const getAttributes = (
+  baseText: string,
+  finishTextFrame: any,
+  isVertical: boolean
+) => {
+  let definedFont: TextFont | null = null;
   let definedSize: string | null = null;
   let definedOffset: string | null = null;
   let tryAlignment = "kata";
   let trySutegana = false;
   let tryNarrow = true;
 
+  let finalBaseDifference = 0;
   const rubyList: RubyInfo[] = [];
-  let noGlyphCount = 0;
+  const regex = new RegExp(Object.values(noGlyphs).join("|"), "g");
+  baseText = baseText.replace(regex, "");
 
   for (let i = 0; i < baseText.length; i++) {
-    // check the glyph is not space
-    const regex = new RegExp(Object.values(noGlyphs).join("|"));
-
-    try {
-      if (baseText[i].match(regex) == null) {
-        // search a delimiter for ruby
-        if (baseText[i] == "[" && baseText[i + 1] != "[") {
-          const text = baseText.substring(i + 1, baseText.indexOf("]"));
-          const ruby = {
-            text,
-            kanji: text.split("[")[0],
-            kana: !trySutegana
-              ? suteganaConvert(text.split("[")[1])
-              : text.split("[")[1],
-          };
-          baseText =
-            baseText.substring(0, i) +
-            ruby.kanji +
-            baseText.substr(baseText.indexOf("]") + 1);
-
-          // 1文字目 属性取得
-          const textOutline = finishObj.duplicate().createOutline();
-          const obj = textOutline.compoundPathItems;
-          const key: number =
-            textOutline.compoundPathItems.length - noGlyphCount - 1;
-
-          const rubyInfo: RubyInfo = {
-            kana: ruby.kana,
-            alignment: tryAlignment,
-            font:
-              definedFont ??
-              finishObj.characters[i].characterAttributes.textFont,
-            x: 0,
-            y: 0,
-            baseWidth: 0,
-            baseHeight: 0,
-            offset: 0,
-            narrow: tryNarrow,
-            size: {
-              ruby: 0,
-              base: 0,
-            },
-          };
-
-          // set a position
-          if (direction === "vertical") {
-            rubyInfo.y = obj[key].top;
-            for (let j = 0; j < ruby.kanji.length; j++) {
-              var x = obj[key - j].left;
-              rubyInfo.x =
-                rubyInfo.x == null || rubyInfo.x! < x ? x : rubyInfo.x;
-            }
-          } else {
-            rubyInfo.x = obj[key].left;
-            for (let j = 0; j < ruby.kanji.length; j++) {
-              const y = obj[key - j].top;
-              rubyInfo.y =
-                rubyInfo.y == null || rubyInfo.y! < y ? y : rubyInfo.y;
-            }
-          }
-
-          // set a width and height
-          rubyInfo.baseWidth =
-            obj[key - ruby.kanji.length + 1].left +
-            obj[key - ruby.kanji.length + 1].width -
-            rubyInfo.x;
-          rubyInfo.baseHeight =
-            rubyInfo.y -
-            obj[key - ruby.kanji.length + 1].top +
-            obj[key - ruby.kanji.length + 1].height;
-
-          rubyInfo.size.base = finishObj.characters[i].characterAttributes.size;
-          rubyInfo.size.ruby = unitConvert(
-            definedSize,
-            rubyInfo.size.base,
-            0.5
-          );
-          rubyInfo.offset = unitConvert(definedOffset, rubyInfo.size.base, 0);
-          textOutline.remove();
-          rubyList.push(rubyInfo);
-
-          // group rubies
-        } else if (baseText[i] == "[" && baseText[i + 1] == "[") {
-          i++;
-        }
-        // process text
-        else if (baseText[i] == "(" && baseText[i + 1] != "(") {
-          const tmpText = baseText.substring(i + 1, baseText.indexOf(")"));
-          const process = {
-            text: tmpText,
-            property: tmpText.split("(")[0],
-            value: tmpText.split("(")[1],
-          };
-          baseText =
-            baseText.substring(0, i) +
-            baseText.substring(baseText.indexOf(")") + 1);
-
-          switch (process.property) {
-            case "align":
-              tryAlignment = process.value == "naka" ? "naka" : "kata";
-              break;
-            case "size":
-              definedSize = process.value == "base" ? null : process.value;
-              break;
-            case "offset":
-              definedOffset = process.value == "base" ? null : process.value;
-              break;
-            case "sutegana":
-              trySutegana = process.value == "true" ? true : false;
-              break;
-            case "narrow":
-              tryNarrow = process.value == "false" ? false : true;
-              break;
-            case "font":
-              const font = process.value == "base" ? null : process.value;
-              try {
-                definedFont = app.textFonts.getByName(font!).name;
-              } catch (e) {
-                definedFont = null;
-              }
-              break;
-          }
-          i--;
-          noGlyphCount--;
-        } else if (baseText[i] == "(" && baseText[i + 1] == "(") {
-          i++;
-        } else {
-          noGlyphCount--;
-        }
+    // ruby
+    if (
+      baseText[i] === rubyDelimiters.from &&
+      baseText[i + 1] !== rubyDelimiters.from
+    ) {
+      const subsequentText = baseText.substring(i + 1);
+      const splited = subsequentText
+        .substring(0, subsequentText.indexOf(rubyDelimiters.to))
+        .split(rubyDelimiters.split);
+      if (splited.length < 2) {
+        continue;
       }
-    } catch (e) {
-      displayError(
-        new Error(
-          'Please check that the own two text textframe including name "finish" and "base" was pair.'
-        )
+      const [baseChars, rubyChars] = splited;
+      const finalBaseIndex = i - finalBaseDifference;
+
+      // get outlined paths
+      const textOutline = (
+        finishTextFrame.duplicate() as TextFrame
+      ).createOutline();
+      const basePaths = [...textOutline.compoundPathItems].slice(
+        textOutline.compoundPathItems.length -
+          (finalBaseIndex + baseChars.length),
+        textOutline.compoundPathItems.length - finalBaseIndex
       );
-      return false;
+
+      // add an information of ruby
+      const rubyInfo: RubyInfo = {
+        kana: rubyChars,
+        alignment: tryAlignment,
+        font:
+          definedFont ??
+          finishTextFrame.characters[finalBaseIndex].characterAttributes
+            .textFont,
+        x: isVertical
+          ? Math.max(...basePaths.map((path) => path.left))
+          : basePaths[basePaths.length - 1].left,
+        y: isVertical
+          ? basePaths[basePaths.length - 1].top
+          : Math.max(...basePaths.map((path) => path.top)),
+        baseWidth: 0,
+        baseHeight: 0,
+        offset: 0,
+        narrow: tryNarrow,
+        size: {
+          base: finishTextFrame.characters[i].characterAttributes.size,
+          ruby: 0,
+        },
+      };
+
+      rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
+      rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
+      rubyInfo.size.ruby = convertUnit(definedSize, rubyInfo.size.base, 0.5);
+      rubyInfo.offset = convertUnit(definedOffset, rubyInfo.size.base, 0);
+      rubyList.push(rubyInfo);
+
+      textOutline.remove();
+      finalBaseDifference += rubyChars.length + 3;
+      i += baseChars.length + rubyChars.length + 2;
     }
-    noGlyphCount++;
+
+    // attribute
+    else if (
+      baseText[i] === attributeDelimiters.from &&
+      baseText[i + 1] !== attributeDelimiters.from
+    ) {
+      const splited = baseText
+        .substring(i + 1, baseText.indexOf(attributeDelimiters.to))
+        .split(attributeDelimiters.split);
+      if (splited.length < 2) {
+        continue;
+      }
+      switch (splited[0]) {
+        case "align":
+          tryAlignment = splited[1] === "naka" ? "naka" : "kata";
+          break;
+        case "size":
+          definedSize = splited[1] === "base" ? null : splited[1];
+          break;
+        case "offset":
+          definedOffset = splited[1] === "base" ? null : splited[1];
+          break;
+        case "sutegana":
+          trySutegana = splited[1] === "true" ? true : false;
+          break;
+        case "narrow":
+          tryNarrow = splited[1] === "false" ? false : true;
+          break;
+        case "font":
+          const font = splited[1] === "base" ? null : splited[1];
+          try {
+            definedFont = app.textFonts.getByName(font!);
+          } catch (e) {
+            definedFont = null;
+          }
+          break;
+      }
+      finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
+    }
   }
+  return rubyList;
+};
 
-  for (let i = 0; i < rubyList.length; i++) {
-    const rubySize = rubyList[i].size.ruby;
-    const align = rubyList[i].alignment;
-    const kanaSize = rubySize * rubyList[i].kana.length;
-    const isVertical = direction === "vertical";
+const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
+  const rubyGroup = activeDocument.groupItems.add();
 
+  rubyList.forEach((ruby, index) => {
     // create the textframe for a ruby
     const rubyTextFrame = rubyGroup.textFrames.add();
-    rubyTextFrame.textRange.characterAttributes.size = rubySize;
-    rubyTextFrame.textRange.characterAttributes.textFont = rubyList[i].font;
-    rubyTextFrame.contents = rubyList[i].kana;
+    rubyTextFrame.textRange.characterAttributes.size = ruby.size.ruby;
+    rubyTextFrame.textRange.characterAttributes.textFont = ruby.font;
+    rubyTextFrame.contents = ruby.kana;
 
     // set a position
     let count = 1;
-    let variable = isVertical ? rubyList[i].x : rubyList[i].y;
-    rubyList.forEach((ruby, index) => {
-      if (index !== i) {
-        const margin = isVertical
-          ? rubyList[i].x - ruby.x
-          : rubyList[i].y - ruby.y;
-        if (margin < rubySize * 0.5 && margin > rubySize * -0.5) {
-          variable += isVertical ? ruby.x : ruby.y;
+    let variable = isVertical ? ruby.x : ruby.y;
+    rubyList.forEach((ruby2, index2) => {
+      if (index !== index2) {
+        const margin = isVertical ? ruby.x - ruby2.x : ruby.y - ruby2.y;
+        if (margin < ruby.size.ruby * 0.5 && margin > ruby.size.ruby * -0.5) {
+          variable += isVertical ? ruby2.x : ruby2.y;
           count++;
         }
       }
@@ -312,41 +270,54 @@ const load = () => {
     rubyTextFrame.orientation = isVertical
       ? TextOrientation.VERTICAL
       : TextOrientation.HORIZONTAL;
+    const kanaSize = ruby.size.ruby * ruby.kana.length;
 
     if (isVertical) {
-      if (
-        rubyList[i].baseHeight - kanaSize > rubySize * -0.3 ||
-        !rubyList[i].narrow
-      ) {
+      if (ruby.baseHeight - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
         rubyTextFrame.top =
-          align === "kata"
-            ? rubyList[i].y
-            : rubyList[i].y - (rubyList[i].baseHeight - kanaSize) / 2;
+          ruby.alignment === "kata"
+            ? ruby.y
+            : ruby.y - (ruby.baseHeight - kanaSize) / 2;
       } else {
-        rubyTextFrame.top = rubyList[i].y;
+        rubyTextFrame.top = ruby.y;
         rubyTextFrame.textRange.characterAttributes.horizontalScale =
-          (rubyList[i].baseHeight / kanaSize) * 100;
+          (ruby.baseHeight / kanaSize) * 100;
       }
-      rubyTextFrame.left =
-        variable + rubyList[i].size.base + rubyList[i].offset;
+      rubyTextFrame.left = variable + ruby.size.base + ruby.offset;
     } else {
-      if (
-        rubyList[i].baseWidth - kanaSize > rubySize * -0.3 ||
-        !rubyList[i].narrow
-      ) {
+      if (ruby.baseWidth - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
         rubyTextFrame.left =
-          align == "kata"
-            ? rubyList[i].x
-            : rubyList[i].x + (rubyList[i].baseWidth - kanaSize) / 2;
+          ruby.alignment === "kata"
+            ? ruby.x
+            : ruby.x + (ruby.baseWidth - kanaSize) / 2;
       } else {
-        rubyTextFrame.left = rubyList[i].x;
+        rubyTextFrame.left = ruby.x;
         rubyTextFrame.textRange.characterAttributes.horizontalScale =
-          (rubyList[i].baseWidth / kanaSize) * 100;
+          (ruby.baseWidth / kanaSize) * 100;
       }
-      rubyTextFrame.top = variable + rubySize + rubyList[i].offset;
+      rubyTextFrame.top = variable + ruby.size.ruby + ruby.offset;
     }
-  }
-  alert("Finished\nThe number of wrote ruby characters : " + rubyList.length);
+  });
 };
 
-load();
+const main = () => {
+  const selectedTextFrame = getSelectedTextFrame();
+  if (selectedTextFrame.base == null || selectedTextFrame.finish == null) {
+    alert(
+      "レイヤー名として finish, base を含むテキストフレームを1つずつ選択してください"
+    );
+    return false;
+  }
+
+  const isVertical =
+    selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
+  const rubyList = getAttributes(
+    selectedTextFrame.base.contents,
+    selectedTextFrame.finish,
+    isVertical
+  );
+
+  addRubys(rubyList, isVertical);
+  alert(`${rubyList.length} 個のルビを付与しました`);
+};
+main();

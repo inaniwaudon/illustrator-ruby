@@ -13,9 +13,3 @@ export interface RubyInfo {
     base: number;
   };
 }
-
-export interface Ruby {
-  text: string;
-  kanji: string;
-  kana: string;
-}

@@ -5,16 +5,19 @@ module.exports = {
   entry: "./src/index.ts",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "ruby.js",
+    filename: "ruby.jsx",
+    environment: {
+      arrowFunction: false,
+    },
   },
   resolve: {
-    extensions: [".ts"],
+    extensions: [".ts", ".js"],
   },
   module: {
     rules: [
       {
         test: /\.ts$/,
-        use: "babel-loader",
+        use: ["ts-loader"],
         exclude: /node_modules/,
       },
     ],
