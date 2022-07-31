@@ -73,4 +73,4 @@ PostScript 名 はフォントベンダのサイトや、Adobe Acrobat 等のソ
 - フォントワークス：https://lets-site.jp/burger_editor/burger_editor/dl/32__TEVUUw-D-.pdf
 - SCREEN（ヒラギノ）：[PostScriptフォント名一覧](https://www.screen.co.jp/ga_product/sento/support/QA/ss_psname.html)
 
-[^sutegana]: 捨て仮名とは、拗音や促音等に使用される、小さな仮名（ぁぃぅぇぉっゃゅょ等）のこと。
+[^sutegana]: 捨て仮名：拗音や促音等に使用される、小さな仮名（ぁぃぅぇぉっゃゅょ等）のこと。

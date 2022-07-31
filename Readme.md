@@ -4,9 +4,9 @@ Adobe Illustrator 上でルビ（振りがな）を振るためのスクリプ�
 
 Illustrator は標準ではルビ機能に対応していませんが、本スクリプトを使用することで、テキストベースの指定によって一括でルビを振ることが可能となります。
 
-[サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md)
-
 [解説記事](https://) - スクリプトの使用方法や、ルビの基本に関して解説しています。
+
+[サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
 
 ## 主な仕様
 - ポイントテキスト、エリア内テキストに対して、縦組・横組いずれの場合もルビを振ることができます。
@@ -46,25 +46,9 @@ Illustrator は標準ではルビ機能に対応していませんが、本ス�
   - `dist/ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップすることでスクリプトが実行されます。
 
 
-## 注意事項
-- MIT ライセンスに従って、自由に使用・再配布等を行うことができます。
-- 本スクリプトは無保証です。本スクリプトの仕様を原因とする損失や損害に関して、一切の責任を負いかねます。
-
-
-## Contribution
-### Development
-TypeScript で記述され、Webpack + ts-loader を用いて ES3 相当のスクリプトに変更しています[^es3]。  
-Babel が出力するソースコードを Illustrator のインタプリタが解釈できないため、必要に応じて Polyfill を `./src/polyfill.ts` に手動で記述しています。
-
-```bash
-yarn  # Install dependencies
-yarn dev # Develop
-yarn build  # Build
-```
-
-
 ## License
 Copyright (c) 2022 いなにわうどん.
-This software is released under the MIT License, see LICENSE.
+This software is released under the MIT License, see [LICENSE](./LICENSE).
 
-[^es3]: Adobe Illustrator に搭載されているインタプリタは、ECMAScript 3 に相当する JavaScript を解釈します。
+- MIT ライセンスに従って、自由に使用・再配布等を行うことができます。
+- 本スクリプトは無保証です。本スクリプトの仕様を原因とする損失や損害に関して、一切の責任を負いかねます。
