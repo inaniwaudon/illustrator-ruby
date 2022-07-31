@@ -33,7 +33,6 @@ Illustrator は標準ではルビ機能に対応していませんが、本ス�
 
 ### 詳細設定
 ルビのスタイル（揃え位置・サイズ・フォント等）に関して詳細設定を行います。`(プロパティ|値)` の形で指定します。  
-特に指定しない場合は既定値が適用されます。明示的に既定値に戻す場合は `base` を値に指定します。
 
 指定可能なプロパティに関しては、[詳細設定](./docs/attribute.md) を参照ください。
 
@@ -53,10 +52,10 @@ Illustrator は標準ではルビ機能に対応していませんが、本ス�
 
 
 ## Contribution
-TypeScript で記述され、Webpack + ts-loader を用いて ES3 相当のスクリプトに変更しています[^2]。  
-Babel が出力するソースコードを Illustrator が搭載するインタプリタが解釈できなかったため、必要に応じて Polyfill を `./src/polyfill.ts` に手動で記述しています。
+### Development
+TypeScript で記述され、Webpack + ts-loader を用いて ES3 相当のスクリプトに変更しています[^es3]。  
+Babel が出力するソースコードを Illustrator のインタプリタが解釈できないため、必要に応じて Polyfill を `./src/polyfill.ts` に手動で記述しています。
 
-### Build
 ```bash
 yarn  # Install dependencies
 yarn dev # Develop
@@ -68,5 +67,4 @@ yarn build  # Build
 Copyright (c) 2022 いなにわうどん.
 This software is released under the MIT License, see LICENSE.
 
-[^1]: 捨て仮名：とは、を指します
-[^2]: Adobe Illustrator に搭載されているインタプリタは、ECMAScript 3 に相当する JavaScript を解釈します。
+[^es3]: Adobe Illustrator に搭載されているインタプリタは、ECMAScript 3 に相当する JavaScript を解釈します。
