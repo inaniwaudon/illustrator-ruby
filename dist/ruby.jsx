@@ -83,7 +83,7 @@ exports.classifyCharacterClass = classifyCharacterClass;
 
 /***/ }),
 
-/***/ 607:
+/***/ 519:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -97,8 +97,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 exports.__esModule = true;
-exports.createRubyInfo = exports.getAttributes = void 0;
-__webpack_require__(880);
+exports.main = exports.applyAttributeToRuby = exports.parseText = void 0;
 var character_1 = __webpack_require__(99);
 var ruby_1 = __webpack_require__(700);
 var convertUnit = function (size, baseSize, ratio) {
@@ -165,8 +164,127 @@ var getSelectedTextFrame = function () {
     }
     return { base: base, finish: finish };
 };
-var getAttributes = function () { };
-exports.getAttributes = getAttributes;
+var parseText = function (baseText) {
+    var removedSpaceText = baseText.replace(new RegExp(Object.values(noGlyphs).join("|"), "g"), "");
+    var elements = [];
+    var finalBaseDifference = 0;
+    for (var i = 0; i < removedSpaceText.length; i++) {
+        if (removedSpaceText[i] === rubyDelimiters.from &&
+            removedSpaceText[i + 1] !== rubyDelimiters.from) {
+            var subsequentText = baseText.substring(i + 1);
+            var splited = subsequentText
+                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
+                .split(rubyDelimiters.split);
+            if (splited.length < 2) {
+                continue;
+            }
+            elements.push({
+                ruby: splited[1],
+                base: splited[0],
+                outlineIndex: i - finalBaseDifference
+            });
+        }
+        // attribute
+        if (removedSpaceText[i] === attributeDelimiters.from &&
+            removedSpaceText[i + 1] !== attributeDelimiters.from) {
+            var subsequentText = baseText.substring(i + 1);
+            var splited = subsequentText
+                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
+                .split(rubyDelimiters.split);
+            if (splited.length < 2) {
+                continue;
+            }
+        }
+    }
+    return elements;
+};
+exports.parseText = parseText;
+var applyAttributeToRuby = function (baseText) {
+    var defined = {
+        font: null,
+        size: null,
+        offset: null,
+        alignment: null,
+        sutegana: null,
+        narrow: null
+    };
+    var finalBaseDifference = 0;
+    baseText = baseText.replace(new RegExp(Object.values(noGlyphs).join("|"), "g"), "");
+    var rubyList = [];
+    for (var i = 0; i < baseText.length; i++) {
+        // ruby
+        if (baseText[i] === rubyDelimiters.from &&
+            baseText[i + 1] !== rubyDelimiters.from) {
+            var subsequentText = baseText.substring(i + 1);
+            var splited = subsequentText
+                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
+                .split(rubyDelimiters.split);
+            if (splited.length < 2) {
+                continue;
+            }
+            // add an information of ruby
+            var ruby = {
+                index: {
+                    original: i,
+                    outline: i - finalBaseDifference
+                },
+                base: splited[0],
+                kana: splited[1]
+            };
+            for (var key in defined) {
+                var value = defined[key];
+                if (value !== null) {
+                    ruby[key] = value;
+                }
+            }
+            rubyList.push(ruby);
+            finalBaseDifference += ruby.kana.length + 3;
+            i += ruby.base.length + ruby.kana.length + 2;
+        }
+        // attribute
+        else if (baseText[i] === attributeDelimiters.from &&
+            baseText[i + 1] !== attributeDelimiters.from) {
+            var subsequentText = baseText.substring(i);
+            var splited = subsequentText
+                .substring(1, subsequentText.indexOf(attributeDelimiters.to))
+                .split(attributeDelimiters.split);
+            if (splited.length < 2) {
+                continue;
+            }
+            switch (splited[0]) {
+                case "align":
+                    defined.alignment = (0, ruby_1.isAlignment)(splited[1]) ? splited[1] : null;
+                    break;
+                case "size":
+                    defined.size = splited[1] === "base" ? null : splited[1];
+                    break;
+                case "offset":
+                    defined.offset = splited[1] === "base" ? null : splited[1];
+                    break;
+                case "sutegana":
+                    defined.sutegana =
+                        splited[1] === "base" ? null : splited[1] === "true";
+                    break;
+                case "narrow":
+                    defined.narrow = splited[1] === "base" ? null : splited[1] === "true";
+                    break;
+                case "font":
+                    var font = splited[1] === "base" ? null : splited[1];
+                    try {
+                        defined.font = app.textFonts.getByName(font);
+                    }
+                    catch (e) {
+                        defined.font = null;
+                    }
+                    break;
+            }
+            finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
+            //i += baseText.indexOf(attributeDelimiters.to) - i;
+        }
+    }
+    return rubyList;
+};
+exports.applyAttributeToRuby = applyAttributeToRuby;
 var createRubyInfo = function (baseText, finishTextFrame, isVertical) {
     var definedFont = null;
     var definedSize = null;
@@ -271,7 +389,6 @@ var createRubyInfo = function (baseText, finishTextFrame, isVertical) {
     }
     return rubyList;
 };
-exports.createRubyInfo = createRubyInfo;
 var addRubys = function (rubyList, isVertical) {
     var rubyGroup = activeDocument.groupItems.add();
     rubyGroup.name = "ruby";
@@ -345,11 +462,11 @@ var main = function () {
         return false;
     }
     var isVertical = selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-    var rubyList = (0, exports.createRubyInfo)(selectedTextFrame.base.contents, selectedTextFrame.finish, isVertical);
+    var rubyList = createRubyInfo(selectedTextFrame.base.contents, selectedTextFrame.finish, isVertical);
     addRubys(rubyList, isVertical);
     alert("".concat(rubyList.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
 };
-main();
+exports.main = main;
 
 
 /***/ }),
@@ -466,11 +583,17 @@ exports.defaultNarrow = false;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __webpack_require__(607);
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+!function() {
+var exports = __webpack_exports__;
+var __webpack_unused_export__;
+
+__webpack_unused_export__ = true;
+var main_1 = __webpack_require__(519);
+__webpack_require__(880);
+(0, main_1.main)();
+
+}();
 /******/ })()
 ;
