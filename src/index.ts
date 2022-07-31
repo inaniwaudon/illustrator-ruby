@@ -1,5 +1,13 @@
 import "./polyfill";
-import { RubyInfo } from "./ruby";
+import { classifyCharacterClass, convertSutegana } from "./character";
+import {
+  alignment,
+  defaultAlignment,
+  defaultNarrow,
+  defaultSutegana,
+  isAlignment,
+  RubyInfo,
+} from "./ruby";
 
 const convertUnit = (size: string | null, baseSize: number, ratio: number) => {
   if (size === null || isNaN(parseFloat(size))) {
@@ -28,57 +36,6 @@ const convertUnit = (size: string | null, baseSize: number, ratio: number) => {
   // TODO:
   return 0;
 };
-
-const suteganaList: {
-  before: string;
-  after: string;
-}[] = [
-  { before: unescape("%u3041"), after: unescape("%u3042") },
-  { before: unescape("%u3043"), after: unescape("%u3044") },
-  { before: unescape("%u3045"), after: unescape("%u3046") },
-  { before: unescape("%u3047"), after: unescape("%u3048") },
-  { before: unescape("%u3049"), after: unescape("%u304A") },
-  { before: unescape("%u3063"), after: unescape("%u3064") },
-  { before: unescape("%u3083"), after: unescape("%u3084") },
-  { before: unescape("%u3085"), after: unescape("%u3086") },
-  { before: unescape("%u3087"), after: unescape("%u3088") },
-  { before: unescape("%u308E"), after: unescape("%u308F") },
-  { before: unescape("%u30A1"), after: unescape("%u30A2") },
-  { before: unescape("%u30A3"), after: unescape("%u30A4") },
-  { before: unescape("%u30A5"), after: unescape("%u30A6") },
-  { before: unescape("%u30A7"), after: unescape("%u30A8") },
-  { before: unescape("%u30A9"), after: unescape("%u30AA") },
-  { before: unescape("%u30F5"), after: unescape("%u30AB") },
-  { before: unescape("%u31F0"), after: unescape("%u30AF") },
-  { before: unescape("%u30F6"), after: unescape("%u30B1") },
-  { before: unescape("%u31F1"), after: unescape("%u30B7") },
-  { before: unescape("%u31F2"), after: unescape("%u30B9") },
-  { before: unescape("%u30C3"), after: unescape("%u30C4") },
-  { before: unescape("%u31F3"), after: unescape("%u30C8") },
-  { before: unescape("%u31F4"), after: unescape("%u30CC") },
-  { before: unescape("%u31F5"), after: unescape("%u30CF") },
-  { before: unescape("%u31F6"), after: unescape("%u30D2") },
-  { before: unescape("%u31F7"), after: unescape("%u30D5") },
-  { before: unescape("%u31F8"), after: unescape("%u30D8") },
-  { before: unescape("%u31F9"), after: unescape("%u30DB") },
-  { before: unescape("%u31FA"), after: unescape("%u30DE") },
-  { before: unescape("%u30E3"), after: unescape("%u30E4") },
-  { before: unescape("%u30E5"), after: unescape("%u30E6") },
-  { before: unescape("%u30E7"), after: unescape("%u30E8") },
-  { before: unescape("%u31FB"), after: unescape("%u30E9") },
-  { before: unescape("%u31FC"), after: unescape("%u30EA") },
-  { before: unescape("%u31FD"), after: unescape("%u30EB") },
-  { before: unescape("%u31FE"), after: unescape("%u30EC") },
-  { before: unescape("%u31FF"), after: unescape("%u30ED") },
-  { before: unescape("%u30EE"), after: unescape("%u30EF") },
-  { before: unescape("%u31F7%u309A"), after: unescape("%u30D7") },
-];
-
-const suteganaConvert = (beforeText: string) =>
-  suteganaList.reduce(
-    (previous, sutegana) => previous.replace(sutegana.before, sutegana.after),
-    beforeText
-  );
 
 const CR = String.fromCharCode(13);
 const LF = String.fromCharCode(10);
@@ -123,7 +80,9 @@ const getSelectedTextFrame = () => {
   return { base, finish };
 };
 
-const getAttributes = (
+export const getAttributes = () => {};
+
+export const createRubyInfo = (
   baseText: string,
   finishTextFrame: any,
   isVertical: boolean
@@ -131,9 +90,9 @@ const getAttributes = (
   let definedFont: TextFont | null = null;
   let definedSize: string | null = null;
   let definedOffset: string | null = null;
-  let tryAlignment = "kata";
-  let trySutegana = false;
-  let tryNarrow = true;
+  let tryAlignment: alignment = defaultAlignment;
+  let convertsSutegana = defaultSutegana;
+  let tryNarrow = defaultNarrow;
 
   let finalBaseDifference = 0;
   const rubyList: RubyInfo[] = [];
@@ -153,7 +112,6 @@ const getAttributes = (
       if (splited.length < 2) {
         continue;
       }
-      const [baseChars, rubyChars] = splited;
       const finalBaseIndex = i - finalBaseDifference;
 
       // get outlined paths
@@ -162,13 +120,14 @@ const getAttributes = (
       ).createOutline();
       const basePaths = [...textOutline.compoundPathItems].slice(
         textOutline.compoundPathItems.length -
-          (finalBaseIndex + baseChars.length),
+          (finalBaseIndex + splited[0].length),
         textOutline.compoundPathItems.length - finalBaseIndex
       );
 
       // add an information of ruby
-      const rubyInfo: RubyInfo = {
-        kana: rubyChars,
+      const ruby: RubyInfo = {
+        base: splited[0],
+        kana: splited[1],
         alignment: tryAlignment,
         font:
           definedFont ??
@@ -185,20 +144,21 @@ const getAttributes = (
         offset: 0,
         narrow: tryNarrow,
         size: {
-          base: finishTextFrame.characters[i].characterAttributes.size,
+          base: finishTextFrame.characters[finalBaseIndex].characterAttributes
+            .size,
           ruby: 0,
         },
       };
 
-      rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
-      rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
-      rubyInfo.size.ruby = convertUnit(definedSize, rubyInfo.size.base, 0.5);
-      rubyInfo.offset = convertUnit(definedOffset, rubyInfo.size.base, 0);
-      rubyList.push(rubyInfo);
+      ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
+      ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
+      ruby.size.ruby = convertUnit(definedSize, ruby.size.base, 0.5);
+      ruby.offset = convertUnit(definedOffset, ruby.size.base, 0);
+      rubyList.push(ruby);
 
       textOutline.remove();
-      finalBaseDifference += rubyChars.length + 3;
-      i += baseChars.length + rubyChars.length + 2;
+      finalBaseDifference += ruby.kana.length + 3;
+      i += ruby.base.length + ruby.kana.length + 2;
     }
 
     // attribute
@@ -206,15 +166,18 @@ const getAttributes = (
       baseText[i] === attributeDelimiters.from &&
       baseText[i + 1] !== attributeDelimiters.from
     ) {
-      const splited = baseText
-        .substring(i + 1, baseText.indexOf(attributeDelimiters.to))
+      const subsequentText = baseText.substring(i + 1);
+      const splited = subsequentText
+        .substring(0, subsequentText.indexOf(attributeDelimiters.to))
         .split(attributeDelimiters.split);
       if (splited.length < 2) {
         continue;
       }
       switch (splited[0]) {
         case "align":
-          tryAlignment = splited[1] === "naka" ? "naka" : "kata";
+          tryAlignment = isAlignment(splited[1])
+            ? splited[1]
+            : defaultAlignment;
           break;
         case "size":
           definedSize = splited[1] === "base" ? null : splited[1];
@@ -223,10 +186,12 @@ const getAttributes = (
           definedOffset = splited[1] === "base" ? null : splited[1];
           break;
         case "sutegana":
-          trySutegana = splited[1] === "true" ? true : false;
+          convertsSutegana =
+            splited[1] === "true" ? defaultSutegana : splited[1] === "true";
           break;
         case "narrow":
-          tryNarrow = splited[1] === "false" ? false : true;
+          tryNarrow =
+            splited[1] === "base" ? defaultNarrow : splited[1] === "true";
           break;
         case "font":
           const font = splited[1] === "base" ? null : splited[1];
@@ -238,6 +203,7 @@ const getAttributes = (
           break;
       }
       finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
+      i += baseText.indexOf(attributeDelimiters.to) - i;
     }
   }
   return rubyList;
@@ -245,13 +211,38 @@ const getAttributes = (
 
 const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
   const rubyGroup = activeDocument.groupItems.add();
+  rubyGroup.name = "ruby";
 
   rubyList.forEach((ruby, index) => {
+    // The width of the outlined text is smaller than the virtual body (仮想ボディ).
+    // When the character class of the parent character is Kanji,
+    // the parent character is assumed to be full-width,
+    // and The larger of |the parent character size x the number of characters| or
+    // |ruby.baseWidth| (or baseHeight in vertical direction) is adopted as |baseLength|.
+    const measuredBaseLength = isVertical ? ruby.baseHeight : ruby.baseWidth;
+    const baseLength = Math.max(
+      measuredBaseLength,
+      ruby.base
+        .split("")
+        .every((character) => classifyCharacterClass(character) === "kanji")
+        ? ruby.size.base * ruby.base.length
+        : 0
+    );
+    const kanaLength = ruby.size.ruby * ruby.kana.length;
+
     // create the textframe for a ruby
     const rubyTextFrame = rubyGroup.textFrames.add();
     rubyTextFrame.textRange.characterAttributes.size = ruby.size.ruby;
     rubyTextFrame.textRange.characterAttributes.textFont = ruby.font;
     rubyTextFrame.contents = ruby.kana;
+    rubyTextFrame.orientation = isVertical
+      ? TextOrientation.VERTICAL
+      : TextOrientation.HORIZONTAL;
+
+    if (ruby.alignment === "jis" && baseLength > kanaLength) {
+      rubyTextFrame.textRange.characterAttributes.tracking =
+        ((baseLength - kanaLength) / ruby.kana.length / ruby.size.ruby) * 1000;
+    }
 
     // set a position
     let count = 1;
@@ -267,34 +258,30 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
     });
     variable /= count;
 
-    rubyTextFrame.orientation = isVertical
-      ? TextOrientation.VERTICAL
-      : TextOrientation.HORIZONTAL;
-    const kanaSize = ruby.size.ruby * ruby.kana.length;
+    const isNarrow = ruby.narrow && kanaLength > baseLength;
+    if (isNarrow) {
+      rubyTextFrame.textRange.characterAttributes.horizontalScale =
+        (baseLength / kanaLength) * 100;
+    }
 
+    const rubyAdjustment =
+      measuredBaseLength -
+      baseLength +
+      (isNarrow || ruby.alignment === "kata"
+        ? 0
+        : (baseLength - kanaLength) /
+          (ruby.alignment === "jis"
+            ? ruby.kana.length / 2
+            : (baseLength - kanaLength) / 2));
+
+    // vertical
     if (isVertical) {
-      if (ruby.baseHeight - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
-        rubyTextFrame.top =
-          ruby.alignment === "kata"
-            ? ruby.y
-            : ruby.y - (ruby.baseHeight - kanaSize) / 2;
-      } else {
-        rubyTextFrame.top = ruby.y;
-        rubyTextFrame.textRange.characterAttributes.horizontalScale =
-          (ruby.baseHeight / kanaSize) * 100;
-      }
+      rubyTextFrame.top = ruby.y + rubyAdjustment;
       rubyTextFrame.left = variable + ruby.size.base + ruby.offset;
-    } else {
-      if (ruby.baseWidth - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
-        rubyTextFrame.left =
-          ruby.alignment === "kata"
-            ? ruby.x
-            : ruby.x + (ruby.baseWidth - kanaSize) / 2;
-      } else {
-        rubyTextFrame.left = ruby.x;
-        rubyTextFrame.textRange.characterAttributes.horizontalScale =
-          (ruby.baseWidth / kanaSize) * 100;
-      }
+    }
+    // horizontal
+    else {
+      rubyTextFrame.left = ruby.x + rubyAdjustment;
       rubyTextFrame.top = variable + ruby.size.ruby + ruby.offset;
     }
   });
@@ -304,14 +291,14 @@ const main = () => {
   const selectedTextFrame = getSelectedTextFrame();
   if (selectedTextFrame.base == null || selectedTextFrame.finish == null) {
     alert(
-      "レイヤー名として finish, base を含むテキストフレームを1つずつ選択してください"
+      `レイヤー名として finish, base を含むテキストフレームを1つずつ選択してください`
     );
     return false;
   }
 
   const isVertical =
     selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-  const rubyList = getAttributes(
+  const rubyList = createRubyInfo(
     selectedTextFrame.base.contents,
     selectedTextFrame.finish,
     isVertical

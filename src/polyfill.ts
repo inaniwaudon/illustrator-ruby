@@ -54,3 +54,24 @@ Array.prototype.filter = function <U>(
   }
   return result;
 };
+
+Array.prototype.some = function <U>(
+  predicate: (value: U, index: number, array: U[]) => boolean
+) {
+  for (let i = 0; i < this.length; i++) {
+    if (predicate(this[i], i, this)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+Array.prototype.every = function <U>(
+  predicate: (value: U, index: number, array: U[]) => boolean
+) {
+  let result = true;
+  for (let i = 0; i < this.length; i++) {
+    result &&= predicate(this[i], i, this);
+  }
+  return result;
+};

@@ -2,48 +2,13 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 607:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+/***/ 99:
+/***/ (function(__unused_webpack_module, exports) {
 
 
-var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
-};
 exports.__esModule = true;
-__webpack_require__(880);
-var convertUnit = function (size, baseSize, ratio) {
-    if (size === null || isNaN(parseFloat(size))) {
-        return baseSize * ratio;
-    }
-    var num = parseFloat(size);
-    var unit = size.replace(/[0-9]*/, "").match(/pt|cm|mm|Q|H|px|%/);
-    var mmPerPt = 2.8346;
-    if (unit !== null) {
-        switch (unit[0]) {
-            case "pt":
-                return num;
-            case "mm":
-                return num * mmPerPt;
-            case "cm":
-                return num * mmPerPt * 10;
-            case "Q":
-            case "H":
-                return num * mmPerPt * 0.25;
-            case "px":
-                return num * 0.75;
-            case "%":
-                return (num / 100) * baseSize;
-        }
-    }
-    // TODO:
-    return 0;
-};
+exports.classifyCharacterClass = exports.kanjiCodes = exports.convertSutegana = void 0;
+// sutegana
 var suteganaList = [
     { before: unescape("%u3041"), after: unescape("%u3042") },
     { before: unescape("%u3043"), after: unescape("%u3044") },
@@ -85,8 +50,83 @@ var suteganaList = [
     { before: unescape("%u30EE"), after: unescape("%u30EF") },
     { before: unescape("%u31F7%u309A"), after: unescape("%u30D7") },
 ];
-var suteganaConvert = function (beforeText) {
+var convertSutegana = function (beforeText) {
     return suteganaList.reduce(function (previous, sutegana) { return previous.replace(sutegana.before, sutegana.after); }, beforeText);
+};
+exports.convertSutegana = convertSutegana;
+// character class
+exports.kanjiCodes = [
+    [0x4e00, 0x9fef],
+    [0x3400, 0x4db5],
+    [0x20000, 0x2a6d6],
+    [0x2a700, 0x2b734],
+    [0x2b740, 0x2b81d],
+    [0x2b820, 0x2cea1],
+    [0x2ceb0, 0x2ebe0],
+    [0xf900, 0xfaff],
+    [0x2f800, 0x2fa1f],
+    [0xe0100, 0xe01ef],
+    [0x2f00, 0x2fdf],
+    [0x2e80, 0x2eff],
+    [0x31c0, 0x31ef],
+];
+var classifyCharacterClass = function (character) {
+    var code = character.charCodeAt(0);
+    return code === undefined
+        ? null
+        : exports.kanjiCodes.some(function (value) { return value[0] <= code && code <= value[1]; })
+            ? "kanji"
+            : null;
+};
+exports.classifyCharacterClass = classifyCharacterClass;
+
+
+/***/ }),
+
+/***/ 607:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
+exports.__esModule = true;
+exports.createRubyInfo = exports.getAttributes = void 0;
+__webpack_require__(880);
+var character_1 = __webpack_require__(99);
+var ruby_1 = __webpack_require__(700);
+var convertUnit = function (size, baseSize, ratio) {
+    if (size === null || isNaN(parseFloat(size))) {
+        return baseSize * ratio;
+    }
+    var num = parseFloat(size);
+    var unit = size.replace(/[0-9]*/, "").match(/pt|cm|mm|Q|H|px|%/);
+    var mmPerPt = 2.8346;
+    if (unit !== null) {
+        switch (unit[0]) {
+            case "pt":
+                return num;
+            case "mm":
+                return num * mmPerPt;
+            case "cm":
+                return num * mmPerPt * 10;
+            case "Q":
+            case "H":
+                return num * mmPerPt * 0.25;
+            case "px":
+                return num * 0.75;
+            case "%":
+                return (num / 100) * baseSize;
+        }
+    }
+    // TODO:
+    return 0;
 };
 var CR = String.fromCharCode(13);
 var LF = String.fromCharCode(10);
@@ -125,13 +165,15 @@ var getSelectedTextFrame = function () {
     }
     return { base: base, finish: finish };
 };
-var getAttributes = function (baseText, finishTextFrame, isVertical) {
+var getAttributes = function () { };
+exports.getAttributes = getAttributes;
+var createRubyInfo = function (baseText, finishTextFrame, isVertical) {
     var definedFont = null;
     var definedSize = null;
     var definedOffset = null;
-    var tryAlignment = "kata";
-    var trySutegana = false;
-    var tryNarrow = true;
+    var tryAlignment = ruby_1.defaultAlignment;
+    var convertsSutegana = ruby_1.defaultSutegana;
+    var tryNarrow = ruby_1.defaultNarrow;
     var finalBaseDifference = 0;
     var rubyList = [];
     var regex = new RegExp(Object.values(noGlyphs).join("|"), "g");
@@ -147,15 +189,15 @@ var getAttributes = function (baseText, finishTextFrame, isVertical) {
             if (splited.length < 2) {
                 continue;
             }
-            var baseChars = splited[0], rubyChars = splited[1];
             var finalBaseIndex = i - finalBaseDifference;
             // get outlined paths
             var textOutline = finishTextFrame.duplicate().createOutline();
             var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
-                (finalBaseIndex + baseChars.length), textOutline.compoundPathItems.length - finalBaseIndex);
+                (finalBaseIndex + splited[0].length), textOutline.compoundPathItems.length - finalBaseIndex);
             // add an information of ruby
-            var rubyInfo = {
-                kana: rubyChars,
+            var ruby = {
+                base: splited[0],
+                kana: splited[1],
                 alignment: tryAlignment,
                 font: definedFont !== null && definedFont !== void 0 ? definedFont : finishTextFrame.characters[finalBaseIndex].characterAttributes
                     .textFont,
@@ -169,31 +211,35 @@ var getAttributes = function (baseText, finishTextFrame, isVertical) {
                 offset: 0,
                 narrow: tryNarrow,
                 size: {
-                    base: finishTextFrame.characters[i].characterAttributes.size,
+                    base: finishTextFrame.characters[finalBaseIndex].characterAttributes
+                        .size,
                     ruby: 0
                 }
             };
-            rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
-            rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
-            rubyInfo.size.ruby = convertUnit(definedSize, rubyInfo.size.base, 0.5);
-            rubyInfo.offset = convertUnit(definedOffset, rubyInfo.size.base, 0);
-            rubyList.push(rubyInfo);
+            ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
+            ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
+            ruby.size.ruby = convertUnit(definedSize, ruby.size.base, 0.5);
+            ruby.offset = convertUnit(definedOffset, ruby.size.base, 0);
+            rubyList.push(ruby);
             textOutline.remove();
-            finalBaseDifference += rubyChars.length + 3;
-            i += baseChars.length + rubyChars.length + 2;
+            finalBaseDifference += ruby.kana.length + 3;
+            i += ruby.base.length + ruby.kana.length + 2;
         }
         // attribute
         else if (baseText[i] === attributeDelimiters.from &&
             baseText[i + 1] !== attributeDelimiters.from) {
-            var splited = baseText
-                .substring(i + 1, baseText.indexOf(attributeDelimiters.to))
+            var subsequentText = baseText.substring(i + 1);
+            var splited = subsequentText
+                .substring(0, subsequentText.indexOf(attributeDelimiters.to))
                 .split(attributeDelimiters.split);
             if (splited.length < 2) {
                 continue;
             }
             switch (splited[0]) {
                 case "align":
-                    tryAlignment = splited[1] === "naka" ? "naka" : "kata";
+                    tryAlignment = (0, ruby_1.isAlignment)(splited[1])
+                        ? splited[1]
+                        : ruby_1.defaultAlignment;
                     break;
                 case "size":
                     definedSize = splited[1] === "base" ? null : splited[1];
@@ -202,10 +248,12 @@ var getAttributes = function (baseText, finishTextFrame, isVertical) {
                     definedOffset = splited[1] === "base" ? null : splited[1];
                     break;
                 case "sutegana":
-                    trySutegana = splited[1] === "true" ? true : false;
+                    convertsSutegana =
+                        splited[1] === "true" ? ruby_1.defaultSutegana : splited[1] === "true";
                     break;
                 case "narrow":
-                    tryNarrow = splited[1] === "false" ? false : true;
+                    tryNarrow =
+                        splited[1] === "base" ? ruby_1.defaultNarrow : splited[1] === "true";
                     break;
                 case "font":
                     var font = splited[1] === "base" ? null : splited[1];
@@ -218,18 +266,40 @@ var getAttributes = function (baseText, finishTextFrame, isVertical) {
                     break;
             }
             finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
+            i += baseText.indexOf(attributeDelimiters.to) - i;
         }
     }
     return rubyList;
 };
+exports.createRubyInfo = createRubyInfo;
 var addRubys = function (rubyList, isVertical) {
     var rubyGroup = activeDocument.groupItems.add();
+    rubyGroup.name = "ruby";
     rubyList.forEach(function (ruby, index) {
+        // The width of the outlined text is smaller than the virtual body (仮想ボディ).
+        // When the character class of the parent character is Kanji,
+        // the parent character is assumed to be full-width,
+        // and The larger of |the parent character size x the number of characters| or
+        // |ruby.baseWidth| (or baseHeight in vertical direction) is adopted as |baseLength|.
+        var measuredBaseLength = isVertical ? ruby.baseHeight : ruby.baseWidth;
+        var baseLength = Math.max(measuredBaseLength, ruby.base
+            .split("")
+            .every(function (character) { return (0, character_1.classifyCharacterClass)(character) === "kanji"; })
+            ? ruby.size.base * ruby.base.length
+            : 0);
+        var kanaLength = ruby.size.ruby * ruby.kana.length;
         // create the textframe for a ruby
         var rubyTextFrame = rubyGroup.textFrames.add();
         rubyTextFrame.textRange.characterAttributes.size = ruby.size.ruby;
         rubyTextFrame.textRange.characterAttributes.textFont = ruby.font;
         rubyTextFrame.contents = ruby.kana;
+        rubyTextFrame.orientation = isVertical
+            ? TextOrientation.VERTICAL
+            : TextOrientation.HORIZONTAL;
+        if (ruby.alignment === "jis" && baseLength > kanaLength) {
+            rubyTextFrame.textRange.characterAttributes.tracking =
+                ((baseLength - kanaLength) / ruby.kana.length / ruby.size.ruby) * 1000;
+        }
         // set a position
         var count = 1;
         var variable = isVertical ? ruby.x : ruby.y;
@@ -243,36 +313,27 @@ var addRubys = function (rubyList, isVertical) {
             }
         });
         variable /= count;
-        rubyTextFrame.orientation = isVertical
-            ? TextOrientation.VERTICAL
-            : TextOrientation.HORIZONTAL;
-        var kanaSize = ruby.size.ruby * ruby.kana.length;
+        var isNarrow = ruby.narrow && kanaLength > baseLength;
+        if (isNarrow) {
+            rubyTextFrame.textRange.characterAttributes.horizontalScale =
+                (baseLength / kanaLength) * 100;
+        }
+        var rubyAdjustment = measuredBaseLength -
+            baseLength +
+            (isNarrow || ruby.alignment === "kata"
+                ? 0
+                : (baseLength - kanaLength) /
+                    (ruby.alignment === "jis"
+                        ? ruby.kana.length / 2
+                        : (baseLength - kanaLength) / 2));
+        // vertical
         if (isVertical) {
-            if (ruby.baseHeight - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
-                rubyTextFrame.top =
-                    ruby.alignment === "kata"
-                        ? ruby.y
-                        : ruby.y - (ruby.baseHeight - kanaSize) / 2;
-            }
-            else {
-                rubyTextFrame.top = ruby.y;
-                rubyTextFrame.textRange.characterAttributes.horizontalScale =
-                    (ruby.baseHeight / kanaSize) * 100;
-            }
+            rubyTextFrame.top = ruby.y + rubyAdjustment;
             rubyTextFrame.left = variable + ruby.size.base + ruby.offset;
         }
+        // horizontal
         else {
-            if (ruby.baseWidth - kanaSize > ruby.size.ruby * -0.3 || !ruby.narrow) {
-                rubyTextFrame.left =
-                    ruby.alignment === "kata"
-                        ? ruby.x
-                        : ruby.x + (ruby.baseWidth - kanaSize) / 2;
-            }
-            else {
-                rubyTextFrame.left = ruby.x;
-                rubyTextFrame.textRange.characterAttributes.horizontalScale =
-                    (ruby.baseWidth / kanaSize) * 100;
-            }
+            rubyTextFrame.left = ruby.x + rubyAdjustment;
             rubyTextFrame.top = variable + ruby.size.ruby + ruby.offset;
         }
     });
@@ -280,11 +341,11 @@ var addRubys = function (rubyList, isVertical) {
 var main = function () {
     var selectedTextFrame = getSelectedTextFrame();
     if (selectedTextFrame.base == null || selectedTextFrame.finish == null) {
-        alert("レイヤー名として finish, base を含むテキストフレームを1つずつ選択してください");
+        alert("\u30EC\u30A4\u30E4\u30FC\u540D\u3068\u3057\u3066 finish, base \u3092\u542B\u3080\u30C6\u30AD\u30B9\u30C8\u30D5\u30EC\u30FC\u30E0\u30921\u3064\u305A\u3064\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044");
         return false;
     }
     var isVertical = selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-    var rubyList = getAttributes(selectedTextFrame.base.contents, selectedTextFrame.finish, isVertical);
+    var rubyList = (0, exports.createRubyInfo)(selectedTextFrame.base.contents, selectedTextFrame.finish, isVertical);
     addRubys(rubyList, isVertical);
     alert("".concat(rubyList.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
 };
@@ -339,6 +400,41 @@ Array.prototype.filter = function (predicate) {
     }
     return result;
 };
+Array.prototype.some = function (predicate) {
+    for (var i = 0; i < this.length; i++) {
+        if (predicate(this[i], i, this)) {
+            return true;
+        }
+    }
+    return false;
+};
+Array.prototype.every = function (predicate) {
+    var result = true;
+    for (var i = 0; i < this.length; i++) {
+        result && (result = predicate(this[i], i, this));
+    }
+    return result;
+};
+
+
+/***/ }),
+
+/***/ 700:
+/***/ (function(__unused_webpack_module, exports) {
+
+
+exports.__esModule = true;
+exports.defaultNarrow = exports.defaultSutegana = exports.defaultAlignment = exports.isAlignment = exports.alignment = void 0;
+// alignment
+exports.alignment = { kata: "kata", naka: "naka", jis: "jis" };
+var isAlignment = function (value) {
+    return value in exports.alignment;
+};
+exports.isAlignment = isAlignment;
+// default value
+exports.defaultAlignment = "jis";
+exports.defaultSutegana = true;
+exports.defaultNarrow = false;
 
 
 /***/ })

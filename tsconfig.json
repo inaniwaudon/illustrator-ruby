@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
     "target": "es3",
-    "lib": ["es2017"],
+    "lib": ["es2017", "dom"],
     "module": "commonjs",
     "outDir": "dist",
     "strict": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "forceConsistentCasingInFileNames": true,
     "types": ["types-for-adobe/Illustrator/2015.3"],
     "paths": {
