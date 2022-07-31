@@ -1,5 +1,5 @@
 export interface RubyInfo {
-  kana: string;
+  ruby: string;
   base: string;
   alignment: alignment;
   font: TextFont;
@@ -8,6 +8,7 @@ export interface RubyInfo {
   baseWidth: number;
   baseHeight: number;
   offset: number;
+  sutegana: boolean;
   narrow: boolean;
   size: {
     ruby: number;
@@ -16,24 +17,24 @@ export interface RubyInfo {
 }
 
 export interface MiddleRubyInfo {
-  outlineIndex: number;
   ruby: string;
   base: string;
-  narrow?: boolean;
-  sutegana?: boolean;
+  outlineIndex: number;
   rubySize?: string;
   offset?: string;
+  font?: string;
   alignment?: alignment;
-  font?: TextFont;
+  sutegana?: boolean;
+  narrow?: boolean;
 }
 
 export interface DefinedAttribute {
-  font: TextFont | null;
-  size: string | null;
-  offset: string | null;
-  alignment: alignment | null;
-  sutegana: boolean | null;
-  narrow: boolean | null;
+  rubySize?: string | null;
+  offset?: string | null;
+  font?: string | null;
+  alignment?: alignment | null;
+  sutegana?: boolean | null;
+  narrow?: boolean | null;
 }
 
 export type Token =
@@ -50,3 +51,4 @@ export const isAlignment = (value: string): value is alignment =>
 export const defaultAlignment = "jis";
 export const defaultSutegana = true;
 export const defaultNarrow = false;
+export const defaultRubySizeRatio = 0.5;

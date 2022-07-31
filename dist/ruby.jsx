@@ -97,11 +97,11 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 exports.__esModule = true;
-exports.main = exports.applyAttributeToRuby = exports.parseText = void 0;
+exports.main = exports.applyAttributesToRubys = exports.tokenizeText = void 0;
 var character_1 = __webpack_require__(99);
 var ruby_1 = __webpack_require__(700);
 var convertUnit = function (size, baseSize, ratio) {
-    if (size === null || isNaN(parseFloat(size))) {
+    if (isNaN(parseFloat(size))) {
         return baseSize * ratio;
     }
     var num = parseFloat(size);
@@ -164,72 +164,65 @@ var getSelectedTextFrame = function () {
     }
     return { base: base, finish: finish };
 };
-var parseText = function (baseText) {
+var tokenizeText = function (baseText) {
     var removedSpaceText = baseText.replace(new RegExp(Object.values(noGlyphs).join("|"), "g"), "");
-    var elements = [];
+    var tokens = [];
     var finalBaseDifference = 0;
     for (var i = 0; i < removedSpaceText.length; i++) {
+        // ruby
         if (removedSpaceText[i] === rubyDelimiters.from &&
             removedSpaceText[i + 1] !== rubyDelimiters.from) {
-            var subsequentText = baseText.substring(i + 1);
+            var subsequentText = removedSpaceText.substring(i);
             var splited = subsequentText
-                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
+                .substring(1, subsequentText.indexOf(rubyDelimiters.to))
                 .split(rubyDelimiters.split);
             if (splited.length < 2) {
                 continue;
             }
-            elements.push({
+            tokens.push({
+                type: "ruby",
                 ruby: splited[1],
                 base: splited[0],
                 outlineIndex: i - finalBaseDifference
             });
+            finalBaseDifference += splited[1].length + 3;
+            i += splited[0].length + splited[1].length + 2;
         }
         // attribute
         if (removedSpaceText[i] === attributeDelimiters.from &&
             removedSpaceText[i + 1] !== attributeDelimiters.from) {
-            var subsequentText = baseText.substring(i + 1);
+            var subsequentText = removedSpaceText.substring(i);
+            var toIndex = subsequentText.indexOf(attributeDelimiters.to);
             var splited = subsequentText
-                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
-                .split(rubyDelimiters.split);
+                .substring(1, toIndex)
+                .split(attributeDelimiters.split);
             if (splited.length < 2) {
                 continue;
             }
+            tokens.push({
+                type: "attribute",
+                key: splited[0],
+                value: splited[1]
+            });
+            finalBaseDifference += toIndex + 1;
+            i += toIndex;
         }
     }
-    return elements;
+    return tokens;
 };
-exports.parseText = parseText;
-var applyAttributeToRuby = function (baseText) {
-    var defined = {
-        font: null,
-        size: null,
-        offset: null,
-        alignment: null,
-        sutegana: null,
-        narrow: null
-    };
-    var finalBaseDifference = 0;
-    baseText = baseText.replace(new RegExp(Object.values(noGlyphs).join("|"), "g"), "");
+exports.tokenizeText = tokenizeText;
+var applyAttributesToRubys = function (tokens) {
+    var defined = {};
     var rubyList = [];
-    for (var i = 0; i < baseText.length; i++) {
+    for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
+        var token = tokens_1[_i];
         // ruby
-        if (baseText[i] === rubyDelimiters.from &&
-            baseText[i + 1] !== rubyDelimiters.from) {
-            var subsequentText = baseText.substring(i + 1);
-            var splited = subsequentText
-                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
-                .split(rubyDelimiters.split);
-            if (splited.length < 2) {
-                continue;
-            }
+        if (token.type === "ruby") {
             // add an information of ruby
             var ruby = {
-                index: {
-                    original: i,
-                    outline: i - finalBaseDifference
-                },
-                base: splited[0],
-                kana: splited[1]
+                outlineIndex: token.outlineIndex,
+                ruby: token.ruby,
+                base: token.base
             };
             for (var key in defined) {
                 var value = defined[key];
@@ -238,154 +231,85 @@ var applyAttributeToRuby = function (baseText) {
                 }
             }
             rubyList.push(ruby);
-            finalBaseDifference += ruby.kana.length + 3;
-            i += ruby.base.length + ruby.kana.length + 2;
         }
         // attribute
-        else if (baseText[i] === attributeDelimiters.from &&
-            baseText[i + 1] !== attributeDelimiters.from) {
-            var subsequentText = baseText.substring(i);
-            var splited = subsequentText
-                .substring(1, subsequentText.indexOf(attributeDelimiters.to))
-                .split(attributeDelimiters.split);
-            if (splited.length < 2) {
-                continue;
-            }
-            switch (splited[0]) {
+        else if (token.type === "attribute") {
+            switch (token.key) {
                 case "align":
-                    defined.alignment = (0, ruby_1.isAlignment)(splited[1]) ? splited[1] : null;
+                    defined.alignment = (0, ruby_1.isAlignment)(token.value) ? token.value : null;
                     break;
                 case "size":
-                    defined.size = splited[1] === "base" ? null : splited[1];
+                    defined.rubySize = token.value === "base" ? null : token.value;
                     break;
                 case "offset":
-                    defined.offset = splited[1] === "base" ? null : splited[1];
+                    defined.offset = token.value === "base" ? null : token.value;
                     break;
-                case "sutegana":
+                case "sute":
                     defined.sutegana =
-                        splited[1] === "base" ? null : splited[1] === "true";
+                        token.value === "base" ? null : token.value === "true";
                     break;
                 case "narrow":
-                    defined.narrow = splited[1] === "base" ? null : splited[1] === "true";
+                    defined.narrow =
+                        token.value === "base" ? null : token.value === "true";
                     break;
                 case "font":
-                    var font = splited[1] === "base" ? null : splited[1];
-                    try {
-                        defined.font = app.textFonts.getByName(font);
-                    }
-                    catch (e) {
-                        defined.font = null;
-                    }
+                    defined.font = token.value === "base" ? null : token.value;
                     break;
             }
-            finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
-            //i += baseText.indexOf(attributeDelimiters.to) - i;
         }
     }
     return rubyList;
 };
-exports.applyAttributeToRuby = applyAttributeToRuby;
-var createRubyInfo = function (baseText, finishTextFrame, isVertical) {
-    var definedFont = null;
-    var definedSize = null;
-    var definedOffset = null;
-    var tryAlignment = ruby_1.defaultAlignment;
-    var convertsSutegana = ruby_1.defaultSutegana;
-    var tryNarrow = ruby_1.defaultNarrow;
-    var finalBaseDifference = 0;
+exports.applyAttributesToRubys = applyAttributesToRubys;
+var createRubyInfo = function (middleRubys, finishTextFrame, isVertical) {
+    var _a, _b, _c;
     var rubyList = [];
-    var regex = new RegExp(Object.values(noGlyphs).join("|"), "g");
-    baseText = baseText.replace(regex, "");
-    for (var i = 0; i < baseText.length; i++) {
-        // ruby
-        if (baseText[i] === rubyDelimiters.from &&
-            baseText[i + 1] !== rubyDelimiters.from) {
-            var subsequentText = baseText.substring(i + 1);
-            var splited = subsequentText
-                .substring(0, subsequentText.indexOf(rubyDelimiters.to))
-                .split(rubyDelimiters.split);
-            if (splited.length < 2) {
-                continue;
+    for (var _i = 0, middleRubys_1 = middleRubys; _i < middleRubys_1.length; _i++) {
+        var middleRuby = middleRubys_1[_i];
+        // get outlined paths
+        var textOutline = finishTextFrame.duplicate().createOutline();
+        var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
+            (middleRuby.outlineIndex + middleRuby.base.length), textOutline.compoundPathItems.length - middleRuby.outlineIndex);
+        // add an information of ruby
+        var charAttributes = finishTextFrame.characters[middleRuby.outlineIndex].characterAttributes;
+        var ruby = {
+            ruby: middleRuby.ruby,
+            base: middleRuby.base,
+            alignment: (_a = middleRuby.alignment) !== null && _a !== void 0 ? _a : ruby_1.defaultAlignment,
+            font: charAttributes.textFont,
+            x: isVertical
+                ? Math.max.apply(Math, basePaths.map(function (path) { return path.left; })) : basePaths[basePaths.length - 1].left,
+            y: isVertical
+                ? basePaths[basePaths.length - 1].top
+                : Math.max.apply(Math, basePaths.map(function (path) { return path.top; })),
+            baseWidth: 0,
+            baseHeight: 0,
+            offset: 0,
+            sutegana: (_b = middleRuby.sutegana) !== null && _b !== void 0 ? _b : ruby_1.defaultSutegana,
+            narrow: (_c = middleRuby.narrow) !== null && _c !== void 0 ? _c : ruby_1.defaultNarrow,
+            size: {
+                base: charAttributes.size,
+                ruby: charAttributes.size * ruby_1.defaultRubySizeRatio
             }
-            var finalBaseIndex = i - finalBaseDifference;
-            // get outlined paths
-            var textOutline = finishTextFrame.duplicate().createOutline();
-            var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
-                (finalBaseIndex + splited[0].length), textOutline.compoundPathItems.length - finalBaseIndex);
-            // add an information of ruby
-            var ruby = {
-                base: splited[0],
-                kana: splited[1],
-                alignment: tryAlignment,
-                font: definedFont !== null && definedFont !== void 0 ? definedFont : finishTextFrame.characters[finalBaseIndex].characterAttributes
-                    .textFont,
-                x: isVertical
-                    ? Math.max.apply(Math, basePaths.map(function (path) { return path.left; })) : basePaths[basePaths.length - 1].left,
-                y: isVertical
-                    ? basePaths[basePaths.length - 1].top
-                    : Math.max.apply(Math, basePaths.map(function (path) { return path.top; })),
-                baseWidth: 0,
-                baseHeight: 0,
-                offset: 0,
-                narrow: tryNarrow,
-                size: {
-                    base: finishTextFrame.characters[finalBaseIndex].characterAttributes
-                        .size,
-                    ruby: 0
-                }
-            };
-            ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
-            ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
-            ruby.size.ruby = convertUnit(definedSize, ruby.size.base, 0.5);
-            ruby.offset = convertUnit(definedOffset, ruby.size.base, 0);
-            rubyList.push(ruby);
-            textOutline.remove();
-            finalBaseDifference += ruby.kana.length + 3;
-            i += ruby.base.length + ruby.kana.length + 2;
+        };
+        if (middleRuby.font) {
+            try {
+                ruby.font = app.textFonts.getByName(middleRuby.font);
+            }
+            catch (e) {
+                ruby.font = app.textFonts.getFontByName(middleRuby.font);
+            }
         }
-        // attribute
-        else if (baseText[i] === attributeDelimiters.from &&
-            baseText[i + 1] !== attributeDelimiters.from) {
-            var subsequentText = baseText.substring(i + 1);
-            var splited = subsequentText
-                .substring(0, subsequentText.indexOf(attributeDelimiters.to))
-                .split(attributeDelimiters.split);
-            if (splited.length < 2) {
-                continue;
-            }
-            switch (splited[0]) {
-                case "align":
-                    tryAlignment = (0, ruby_1.isAlignment)(splited[1])
-                        ? splited[1]
-                        : ruby_1.defaultAlignment;
-                    break;
-                case "size":
-                    definedSize = splited[1] === "base" ? null : splited[1];
-                    break;
-                case "offset":
-                    definedOffset = splited[1] === "base" ? null : splited[1];
-                    break;
-                case "sutegana":
-                    convertsSutegana =
-                        splited[1] === "true" ? ruby_1.defaultSutegana : splited[1] === "true";
-                    break;
-                case "narrow":
-                    tryNarrow =
-                        splited[1] === "base" ? ruby_1.defaultNarrow : splited[1] === "true";
-                    break;
-                case "font":
-                    var font = splited[1] === "base" ? null : splited[1];
-                    try {
-                        definedFont = app.textFonts.getByName(font);
-                    }
-                    catch (e) {
-                        definedFont = null;
-                    }
-                    break;
-            }
-            finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
-            i += baseText.indexOf(attributeDelimiters.to) - i;
+        ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
+        ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
+        if (middleRuby.rubySize !== undefined) {
+            ruby.size.ruby = convertUnit(middleRuby.rubySize, ruby.size.base, ruby_1.defaultRubySizeRatio);
         }
+        if (middleRuby.offset !== undefined) {
+            ruby.offset = convertUnit(middleRuby.offset, ruby.size.base, 0);
+        }
+        rubyList.push(ruby);
+        textOutline.remove();
     }
     return rubyList;
 };
@@ -404,18 +328,20 @@ var addRubys = function (rubyList, isVertical) {
             .every(function (character) { return (0, character_1.classifyCharacterClass)(character) === "kanji"; })
             ? ruby.size.base * ruby.base.length
             : 0);
-        var kanaLength = ruby.size.ruby * ruby.kana.length;
+        var rubyLength = ruby.size.ruby * ruby.ruby.length;
         // create the textframe for a ruby
         var rubyTextFrame = rubyGroup.textFrames.add();
         rubyTextFrame.textRange.characterAttributes.size = ruby.size.ruby;
         rubyTextFrame.textRange.characterAttributes.textFont = ruby.font;
-        rubyTextFrame.contents = ruby.kana;
+        rubyTextFrame.contents = ruby.sutegana
+            ? (0, character_1.convertSutegana)(ruby.ruby)
+            : ruby.ruby;
         rubyTextFrame.orientation = isVertical
             ? TextOrientation.VERTICAL
             : TextOrientation.HORIZONTAL;
-        if (ruby.alignment === "jis" && baseLength > kanaLength) {
+        if (ruby.alignment === "jis" && baseLength > rubyLength) {
             rubyTextFrame.textRange.characterAttributes.tracking =
-                ((baseLength - kanaLength) / ruby.kana.length / ruby.size.ruby) * 1000;
+                ((baseLength - rubyLength) / ruby.ruby.length / ruby.size.ruby) * 1000;
         }
         // set a position
         var count = 1;
@@ -430,19 +356,19 @@ var addRubys = function (rubyList, isVertical) {
             }
         });
         variable /= count;
-        var isNarrow = ruby.narrow && kanaLength > baseLength;
+        var isNarrow = ruby.narrow && rubyLength > baseLength;
         if (isNarrow) {
             rubyTextFrame.textRange.characterAttributes.horizontalScale =
-                (baseLength / kanaLength) * 100;
+                (baseLength / rubyLength) * 100;
         }
         var rubyAdjustment = measuredBaseLength -
             baseLength +
-            (isNarrow || ruby.alignment === "kata"
+            (isNarrow || ruby.alignment === "kata" || baseLength - rubyLength === 0
                 ? 0
-                : (baseLength - kanaLength) /
-                    (ruby.alignment === "jis"
-                        ? ruby.kana.length / 2
-                        : (baseLength - kanaLength) / 2));
+                : (baseLength - rubyLength) /
+                    (ruby.alignment === "jis" || rubyLength > baseLength
+                        ? ruby.ruby.length / 2
+                        : (baseLength - rubyLength) / 2));
         // vertical
         if (isVertical) {
             rubyTextFrame.top = ruby.y + rubyAdjustment;
@@ -461,8 +387,10 @@ var main = function () {
         alert("\u30EC\u30A4\u30E4\u30FC\u540D\u3068\u3057\u3066 finish, base \u3092\u542B\u3080\u30C6\u30AD\u30B9\u30C8\u30D5\u30EC\u30FC\u30E0\u30921\u3064\u305A\u3064\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044");
         return false;
     }
+    var tokens = (0, exports.tokenizeText)(selectedTextFrame.base.contents);
+    var middleRubys = (0, exports.applyAttributesToRubys)(tokens);
     var isVertical = selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-    var rubyList = createRubyInfo(selectedTextFrame.base.contents, selectedTextFrame.finish, isVertical);
+    var rubyList = createRubyInfo(middleRubys, selectedTextFrame.finish, isVertical);
     addRubys(rubyList, isVertical);
     alert("".concat(rubyList.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
 };
@@ -541,7 +469,7 @@ Array.prototype.every = function (predicate) {
 
 
 exports.__esModule = true;
-exports.defaultNarrow = exports.defaultSutegana = exports.defaultAlignment = exports.isAlignment = exports.alignment = void 0;
+exports.defaultRubySizeRatio = exports.defaultNarrow = exports.defaultSutegana = exports.defaultAlignment = exports.isAlignment = exports.alignment = void 0;
 // alignment
 exports.alignment = { kata: "kata", naka: "naka", jis: "jis" };
 var isAlignment = function (value) {
@@ -552,6 +480,7 @@ exports.isAlignment = isAlignment;
 exports.defaultAlignment = "jis";
 exports.defaultSutegana = true;
 exports.defaultNarrow = false;
+exports.defaultRubySizeRatio = 0.5;
 
 
 /***/ })

@@ -1,8 +1,8 @@
 import { classifyCharacterClass, convertSutegana } from "./character";
 import {
-  alignment,
   defaultAlignment,
   defaultNarrow,
+  defaultRubySizeRatio,
   defaultSutegana,
   isAlignment,
   DefinedAttribute,
@@ -11,8 +11,8 @@ import {
   Token,
 } from "./ruby";
 
-const convertUnit = (size: string | null, baseSize: number, ratio: number) => {
-  if (size === null || isNaN(parseFloat(size))) {
+const convertUnit = (size: string, baseSize: number, ratio: number) => {
+  if (isNaN(parseFloat(size))) {
     return baseSize * ratio;
   }
   const num = parseFloat(size);
@@ -145,14 +145,7 @@ export const tokenizeText = (baseText: string) => {
 };
 
 export const applyAttributesToRubys = (tokens: Token[]) => {
-  const defined: DefinedAttribute = {
-    font: null,
-    size: null,
-    offset: null,
-    alignment: null,
-    sutegana: null,
-    narrow: null,
-  };
+  const defined: DefinedAttribute = {};
   const rubyList: MiddleRubyInfo[] = [];
 
   for (const token of tokens) {
@@ -179,12 +172,12 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
           defined.alignment = isAlignment(token.value) ? token.value : null;
           break;
         case "size":
-          defined.size = token.value === "base" ? null : token.value;
+          defined.rubySize = token.value === "base" ? null : token.value;
           break;
         case "offset":
           defined.offset = token.value === "base" ? null : token.value;
           break;
-        case "sutegana":
+        case "sute":
           defined.sutegana =
             token.value === "base" ? null : token.value === "true";
           break;
@@ -193,12 +186,7 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
             token.value === "base" ? null : token.value === "true";
           break;
         case "font":
-          const font = token.value === "base" ? null : token.value;
-          try {
-            defined.font = app.textFonts.getByName(font!);
-          } catch (e) {
-            defined.font = null;
-          }
+          defined.font = token.value === "base" ? null : token.value;
           break;
       }
     }
@@ -206,96 +194,74 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
   return rubyList;
 };
 
-/*const createRubyInfo = (
-  baseText: string,
+const createRubyInfo = (
+  middleRubys: MiddleRubyInfo[],
   finishTextFrame: any,
   isVertical: boolean
 ) => {
-  let finalBaseDifference = 0;
   const rubyList: RubyInfo[] = [];
-  const regex = new RegExp(Object.values(noGlyphs).join("|"), "g");
-  baseText = baseText.replace(regex, "");
 
-  for (let i = 0; i < baseText.length; i++) {
-    // ruby
-    if (
-      baseText[i] === rubyDelimiters.from &&
-      baseText[i + 1] !== rubyDelimiters.from
-    ) {
-      const subsequentText = baseText.substring(i + 1);
-      const splited = subsequentText
-        .substring(0, subsequentText.indexOf(rubyDelimiters.to))
-        .split(rubyDelimiters.split);
-      if (splited.length < 2) {
-        continue;
+  for (const middleRuby of middleRubys) {
+    // get outlined paths
+    const textOutline = (
+      finishTextFrame.duplicate() as TextFrame
+    ).createOutline();
+    const basePaths = [...textOutline.compoundPathItems].slice(
+      textOutline.compoundPathItems.length -
+        (middleRuby.outlineIndex + middleRuby.base.length),
+      textOutline.compoundPathItems.length - middleRuby.outlineIndex
+    );
+
+    // add an information of ruby
+    const charAttributes =
+      finishTextFrame.characters[middleRuby.outlineIndex].characterAttributes;
+    const ruby: RubyInfo = {
+      ruby: middleRuby.ruby,
+      base: middleRuby.base,
+      alignment: middleRuby.alignment ?? defaultAlignment,
+      font: charAttributes.textFont,
+      x: isVertical
+        ? Math.max(...basePaths.map((path) => path.left))
+        : basePaths[basePaths.length - 1].left,
+      y: isVertical
+        ? basePaths[basePaths.length - 1].top
+        : Math.max(...basePaths.map((path) => path.top)),
+      baseWidth: 0,
+      baseHeight: 0,
+      offset: 0,
+      sutegana: middleRuby.sutegana ?? defaultSutegana,
+      narrow: middleRuby.narrow ?? defaultNarrow,
+      size: {
+        base: charAttributes.size,
+        ruby: charAttributes.size * defaultRubySizeRatio,
+      },
+    };
+
+    if (middleRuby.font) {
+      try {
+        ruby.font = app.textFonts.getByName(middleRuby.font);
+      } catch (e) {
+        ruby.font = app.textFonts.getFontByName(middleRuby.font);
       }
-      const finalBaseIndex = i - finalBaseDifference;
-
-      // get outlined paths
-      const textOutline = (
-        finishTextFrame.duplicate() as TextFrame
-      ).createOutline();
-      const basePaths = [...textOutline.compoundPathItems].slice(
-        textOutline.compoundPathItems.length -
-          (finalBaseIndex + splited[0].length),
-        textOutline.compoundPathItems.length - finalBaseIndex
+    }
+    ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
+    ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
+    if (middleRuby.rubySize !== undefined) {
+      ruby.size.ruby = convertUnit(
+        middleRuby.rubySize,
+        ruby.size.base,
+        defaultRubySizeRatio
       );
-
-      // add an information of ruby
-      const ruby: RubyInfo = {
-        base: splited[0],
-        kana: splited[1],
-        alignment: tryAlignment,
-        font:
-          definedFont ??
-          finishTextFrame.characters[finalBaseIndex].characterAttributes
-            .textFont,
-        x: isVertical
-          ? Math.max(...basePaths.map((path) => path.left))
-          : basePaths[basePaths.length - 1].left,
-        y: isVertical
-          ? basePaths[basePaths.length - 1].top
-          : Math.max(...basePaths.map((path) => path.top)),
-        baseWidth: 0,
-        baseHeight: 0,
-        offset: 0,
-        narrow: tryNarrow,
-        size: {
-          base: finishTextFrame.characters[finalBaseIndex].characterAttributes
-            .size,
-          ruby: 0,
-        },
-      };
-
-      ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
-      ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
-      ruby.size.ruby = convertUnit(definedSize, ruby.size.base, 0.5);
-      ruby.offset = convertUnit(definedOffset, ruby.size.base, 0);
-      rubyList.push(ruby);
-
-      textOutline.remove();
-      finalBaseDifference += ruby.kana.length + 3;
-      i += ruby.base.length + ruby.kana.length + 2;
+    }
+    if (middleRuby.offset !== undefined) {
+      ruby.offset = convertUnit(middleRuby.offset, ruby.size.base, 0);
     }
 
-    // attribute
-    else if (
-      baseText[i] === attributeDelimiters.from &&
-      baseText[i + 1] !== attributeDelimiters.from
-    ) {
-      const subsequentText = baseText.substring(i + 1);
-      const splited = subsequentText
-        .substring(0, subsequentText.indexOf(attributeDelimiters.to))
-        .split(attributeDelimiters.split);
-      if (splited.length < 2) {
-        continue;
-      }
-      finalBaseDifference += baseText.indexOf(attributeDelimiters.to) - i + 1;
-      i += baseText.indexOf(attributeDelimiters.to) - i;
-    }
+    rubyList.push(ruby);
+    textOutline.remove();
   }
   return rubyList;
-};*/
+};
 
 const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
   const rubyGroup = activeDocument.groupItems.add();
@@ -316,20 +282,22 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
         ? ruby.size.base * ruby.base.length
         : 0
     );
-    const kanaLength = ruby.size.ruby * ruby.kana.length;
+    const rubyLength = ruby.size.ruby * ruby.ruby.length;
 
     // create the textframe for a ruby
     const rubyTextFrame = rubyGroup.textFrames.add();
     rubyTextFrame.textRange.characterAttributes.size = ruby.size.ruby;
     rubyTextFrame.textRange.characterAttributes.textFont = ruby.font;
-    rubyTextFrame.contents = ruby.kana;
+    rubyTextFrame.contents = ruby.sutegana
+      ? convertSutegana(ruby.ruby)
+      : ruby.ruby;
     rubyTextFrame.orientation = isVertical
       ? TextOrientation.VERTICAL
       : TextOrientation.HORIZONTAL;
 
-    if (ruby.alignment === "jis" && baseLength > kanaLength) {
+    if (ruby.alignment === "jis" && baseLength > rubyLength) {
       rubyTextFrame.textRange.characterAttributes.tracking =
-        ((baseLength - kanaLength) / ruby.kana.length / ruby.size.ruby) * 1000;
+        ((baseLength - rubyLength) / ruby.ruby.length / ruby.size.ruby) * 1000;
     }
 
     // set a position
@@ -346,22 +314,21 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
     });
     variable /= count;
 
-    const isNarrow = ruby.narrow && kanaLength > baseLength;
+    const isNarrow = ruby.narrow && rubyLength > baseLength;
     if (isNarrow) {
       rubyTextFrame.textRange.characterAttributes.horizontalScale =
-        (baseLength / kanaLength) * 100;
+        (baseLength / rubyLength) * 100;
     }
 
     const rubyAdjustment =
       measuredBaseLength -
       baseLength +
-      (isNarrow || ruby.alignment === "kata"
+      (isNarrow || ruby.alignment === "kata" || baseLength - rubyLength === 0
         ? 0
-        : (baseLength - kanaLength) /
-          (ruby.alignment === "jis"
-            ? ruby.kana.length / 2
-            : (baseLength - kanaLength) / 2));
-
+        : (baseLength - rubyLength) /
+          (ruby.alignment === "jis" || rubyLength > baseLength
+            ? ruby.ruby.length / 2
+            : (baseLength - rubyLength) / 2));
     // vertical
     if (isVertical) {
       rubyTextFrame.top = ruby.y + rubyAdjustment;
@@ -389,12 +356,11 @@ export const main = () => {
 
   const isVertical =
     selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-  /*const rubyList = createRubyInfo(
+  const rubyList = createRubyInfo(
     middleRubys,
     selectedTextFrame.finish,
     isVertical
   );
-
   addRubys(rubyList, isVertical);
-  alert(`${rubyList.length} 個のルビを付与しました`);*/
+  alert(`${rubyList.length} 個のルビを付与しました`);
 };

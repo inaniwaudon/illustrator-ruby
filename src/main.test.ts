@@ -1,20 +1,27 @@
 import { applyAttributesToRubys, tokenizeText } from "./main";
-import { RubyInfo, Token } from "./ruby";
+import { MiddleRubyInfo, Token } from "./ruby";
 
 const sampleBase =
-  "(narrow|false)(align|naka)東京都[江東|こうとう]区に\n位置する(narrow|true)(align|kata)[清|きよ][澄|すみ][白|しら][河|かわ]駅";
+  "(narrow|false)(align|naka)東京都[江東|こうとう]区(size|16Q)に\n位置する [清|きよ](sute|true)(align|base)[澄|すみ](offset|10H)[白|しら](font|ShinGo-Heavy)[河|かわ]駅";
+
+// TODO: sutegana を判別できる文字でテスト
 
 const middleRubys: Token[] = [
   { type: "attribute", key: "narrow", value: "false" },
   { type: "attribute", key: "align", value: "naka" },
   { type: "ruby", ruby: "こうとう", base: "江東", outlineIndex: 3 },
-  { type: "attribute", key: "narrow", value: "true" },
-  { type: "attribute", key: "align", value: "kata" },
+  { type: "attribute", key: "size", value: "16Q" },
   { type: "ruby", ruby: "きよ", base: "清", outlineIndex: 11 },
+  { type: "attribute", key: "sute", value: "true" },
+  { type: "attribute", key: "align", value: "base" },
   { type: "ruby", ruby: "すみ", base: "澄", outlineIndex: 12 },
+  { type: "attribute", key: "offset", value: "10H" },
   { type: "ruby", ruby: "しら", base: "白", outlineIndex: 13 },
+  { type: "attribute", key: "font", value: "ShinGo-Heavy" },
   { type: "ruby", ruby: "かわ", base: "河", outlineIndex: 14 },
 ];
+
+test("convert a unit", () => {});
 
 test("tokenize a text", () => {
   const result = tokenizeText(sampleBase);
@@ -23,6 +30,49 @@ test("tokenize a text", () => {
 
 test("apply attributes to rubys", () => {
   const result = applyAttributesToRubys(middleRubys);
-  const expected: RubyInfo[] = [];
+  const expected: MiddleRubyInfo[] = [
+    {
+      ruby: "こうとう",
+      base: "江東",
+      outlineIndex: 3,
+      narrow: false,
+      alignment: "naka",
+    },
+    {
+      ruby: "きよ",
+      base: "清",
+      outlineIndex: 11,
+      narrow: false,
+      alignment: "naka",
+      rubySize: "16Q",
+    },
+    {
+      ruby: "すみ",
+      base: "澄",
+      outlineIndex: 12,
+      narrow: false,
+      rubySize: "16Q",
+      sutegana: true,
+    },
+    {
+      ruby: "しら",
+      base: "白",
+      outlineIndex: 13,
+      narrow: false,
+      rubySize: "16Q",
+      sutegana: true,
+      offset: "10H",
+    },
+    {
+      ruby: "かわ",
+      base: "河",
+      outlineIndex: 14,
+      narrow: false,
+      rubySize: "16Q",
+      sutegana: true,
+      offset: "10H",
+      font: "ShinGo-Heavy",
+    },
+  ];
   expect(result).toEqual(expected);
 });
