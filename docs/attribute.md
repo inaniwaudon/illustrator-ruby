@@ -32,11 +32,11 @@
 |規定値|親文字のフォント|
 |記述例|`(font\|KozGoPro-H)[小塚\|こずか]ゴシック`|
 
-### shinshutu
+### shinyu
 
 |項目|説明|
 |---|---|
-|概要|ルビが親文字に収まらない場合に、**進出処理**（前後のアキを調整する）を実施するか|
+|概要|ルビが親文字に収まらない場合に、**進入処理**[^shinyu]を許可するか|
 |値||
 |既定値||
 |記述例||
@@ -73,4 +73,5 @@ PostScript 名 はフォントベンダのサイトや、Adobe Acrobat 等のソ
 - フォントワークス：https://lets-site.jp/burger_editor/burger_editor/dl/32__TEVUUw-D-.pdf
 - SCREEN（ヒラギノ）：[PostScriptフォント名一覧](https://www.screen.co.jp/ga_product/sento/support/QA/ss_psname.html)
 
+[^shinyu]: 進入処理：ルビを親文字と隣接した文字に掛けること。
 [^sutegana]: 捨て仮名：拗音や促音等に使用される、小さな仮名（ぁぃぅぇぉっゃゅょ等）のこと。

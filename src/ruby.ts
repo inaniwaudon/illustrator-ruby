@@ -1,6 +1,12 @@
+export interface RubyChars {
+  start: string;
+  end?: string;
+}
+
 export interface RubyInfo {
   ruby: string;
   base: string;
+  starts: boolean;
   alignment: alignment;
   font: TextFont;
   x: number;
@@ -19,6 +25,7 @@ export interface RubyInfo {
 export interface MiddleRubyInfo {
   ruby: string;
   base: string;
+  starts: boolean;
   outlineIndex: number;
   rubySize?: string;
   offset?: string;
@@ -38,7 +45,13 @@ export interface DefinedAttribute {
 }
 
 export type Token =
-  | { type: "ruby"; ruby: string; base: string; outlineIndex: number }
+  | {
+      type: "ruby";
+      ruby: string;
+      base: string;
+      starts: boolean;
+      outlineIndex: number;
+    }
   | { type: "attribute"; key: string; value: string };
 
 // alignment
