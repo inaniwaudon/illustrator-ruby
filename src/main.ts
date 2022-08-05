@@ -9,6 +9,7 @@ import {
   MiddleRubyInfo,
   RubyInfo,
   Token,
+  MiddleJukugoRubyInfo,
 } from "./ruby";
 
 const convertUnit = (size: string, baseSize: number, ratio: number) => {
@@ -60,6 +61,11 @@ const rubyDelimiters: Delimiters = {
   to: "]",
   split: "|",
 };
+const jukugoRubyDelimiters: Delimiters = {
+  from: "<",
+  to: ">",
+  split: "|",
+};
 const attributeDelimiters: Delimiters = {
   from: "(",
   to: ")",
@@ -97,34 +103,53 @@ export const tokenizeText = (baseText: string) => {
 
   for (let i = 0; i < removedSpaceText.length; i++) {
     // ruby
+    const startsJukugoRuby = removedSpaceText[i] === jukugoRubyDelimiters.from;
     if (
-      removedSpaceText[i] === rubyDelimiters.from &&
-      removedSpaceText[i + 1] !== rubyDelimiters.from
+      (removedSpaceText[i] === rubyDelimiters.from &&
+        removedSpaceText[i + 1] !== rubyDelimiters.from) ||
+      (startsJukugoRuby &&
+        removedSpaceText[i + 1] !== jukugoRubyDelimiters.from)
     ) {
       const subsequentText = removedSpaceText.substring(i);
-      const toIndex = subsequentText.indexOf(rubyDelimiters.to);
+      const delimiter = startsJukugoRuby
+        ? jukugoRubyDelimiters
+        : rubyDelimiters;
+      const toIndex = subsequentText.indexOf(delimiter.to);
       const splited = subsequentText
         .substring(1, toIndex)
-        .split(rubyDelimiters.split);
+        .split(delimiter.split);
       if (splited.length < 2) {
         continue;
       }
+
       // `ruby1|ruby2` represents upper and lower rubys.
       for (let j = 1; j < Math.max(splited.length, 2); j++) {
         // `ruby1/ruby2` is separated into mono rubys.
         const splitedMono = splited[j].split("/");
-        for (
-          let k = 0;
-          k < Math.min(splitedMono.length, splited[0].length);
-          k++
+        if (
+          splitedMono.length > 1 &&
+          splitedMono.length !== splited[0].length
         ) {
+          continue;
+        }
+        if (startsJukugoRuby) {
           tokens.push({
-            type: "ruby",
-            ruby: splitedMono[k],
-            base: splitedMono.length === 1 ? splited[0] : splited[0][k],
-            starts: j == 1,
-            outlineIndex: i - finalBaseDifference + k,
+            type: "jukugo-ruby",
+            ruby: splitedMono,
+            base: splited[0],
+            starts: j === 1,
+            outlineIndex: i - finalBaseDifference,
           });
+        } else {
+          for (let k = 0; k < splitedMono.length; k++) {
+            tokens.push({
+              type: "ruby",
+              ruby: splitedMono[k],
+              base: splitedMono.length === 1 ? splited[0] : splited[0][k],
+              starts: j === 1,
+              outlineIndex: i - finalBaseDifference + k,
+            });
+          }
         }
       }
       finalBaseDifference += toIndex + 1 - splited[0].length;
@@ -158,13 +183,14 @@ export const tokenizeText = (baseText: string) => {
 
 export const applyAttributesToRubys = (tokens: Token[]) => {
   const defined: DefinedAttribute = {};
-  const rubyList: MiddleRubyInfo[] = [];
+  const rubyList: (MiddleRubyInfo | MiddleJukugoRubyInfo)[] = [];
 
   for (const token of tokens) {
     // ruby
-    if (token.type === "ruby") {
+    if (token.type === "ruby" || token.type === "jukugo-ruby") {
       // add an information of ruby
-      const ruby: MiddleRubyInfo = {
+      const ruby = {
+        type: token.type,
         ruby: token.ruby,
         base: token.base,
         starts: token.starts,
@@ -176,7 +202,7 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
           (ruby as any)[key] = value as any;
         }
       }
-      rubyList.push(ruby);
+      rubyList.push(ruby as any);
     }
     // attribute
     else if (token.type === "attribute") {
@@ -208,7 +234,7 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
 };
 
 const createRubyInfo = (
-  middleRubys: MiddleRubyInfo[],
+  middleRubys: (MiddleRubyInfo | MiddleJukugoRubyInfo)[],
   finishTextFrame: any,
   isVertical: boolean
 ) => {
@@ -224,6 +250,61 @@ const createRubyInfo = (
         (middleRuby.outlineIndex + middleRuby.base.length),
       textOutline.compoundPathItems.length - middleRuby.outlineIndex
     );
+
+    // jukugo-ruby
+    if (middleRuby.type === "jukugo-ruby") {
+      const baseSize =
+        finishTextFrame.characters[middleRuby.outlineIndex].characterAttributes
+          .size;
+      // The ruby for which the parent characters are not of the same size is not processed.
+      if (
+        !middleRuby.ruby.every(
+          (_, index) =>
+            baseSize ===
+            finishTextFrame.characters[middleRuby.outlineIndex + index]
+              .characterAttributes.size
+        )
+      ) {
+        continue;
+      }
+      const rubyRatio = 0.5;
+      const leftBaseSpaces = [...Array(middleRuby.base.length)].fill(1.0);
+
+      middleRuby.ruby.forEach((ruby, index) => {
+        let left = rubyRatio * ruby.length;
+        // mono ruby
+        const monoRubyRatio = Math.min(
+          leftBaseSpaces[index],
+          rubyRatio * ruby.length
+        );
+        leftBaseSpaces[index] -= monoRubyRatio;
+        left -= monoRubyRatio;
+        // unable to fit within the base character
+        // overhang the single after character in the compound word
+        if (0 < left && index < middleRuby.ruby.length - 1) {
+          leftBaseSpaces[index + 1] -= left;
+        }
+        // overhang the single before character in the compound word
+        if (0 < left && 0 < index && left <= leftBaseSpaces[index - 1]) {
+          leftBaseSpaces[index - 1] -= left;
+        }
+        if (0 < left) {
+          // overhang the single after character outside an the compound word
+          if (index === 0 && ) {
+          }
+          // overhang the single after character outside an the compound word
+          else if (index === middleRuby.ruby.length - 1 && ) {
+          }
+          // insert spaces between the front and back of the compound word
+          else {
+
+          }
+        }
+      });
+    }
+    // mono-ruby, group-ruby
+    else {
+    }
 
     // add an information of ruby
     const charAttributes =
@@ -287,7 +368,7 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
   const rubyGroup = activeDocument.groupItems.add();
   rubyGroup.name = "ruby";
 
-  rubyList.forEach((ruby, index) => {
+  rubyList.forEach((ruby) => {
     // The width of the outlined text is smaller than the virtual body (仮想ボディ).
     // When the character class of the parent character is Kanji,
     // the parent character is assumed to be full-width,
@@ -302,8 +383,6 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
         ? ruby.size.base * ruby.base.length
         : 0
     );
-
-    const descender = -120;
 
     // create the textframe for a ruby
     const textFrame = rubyGroup.textFrames.add();

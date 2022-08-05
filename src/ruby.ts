@@ -22,11 +22,7 @@ export interface RubyInfo {
   };
 }
 
-export interface MiddleRubyInfo {
-  ruby: string;
-  base: string;
-  starts: boolean;
-  outlineIndex: number;
+export interface MiddleCommonRubyInfo {
   rubySize?: string;
   offset?: string;
   font?: string;
@@ -34,6 +30,9 @@ export interface MiddleRubyInfo {
   sutegana?: boolean;
   narrow?: boolean;
 }
+
+export type MiddleRubyInfo = RubyToken & MiddleCommonRubyInfo;
+export type MiddleJukugoRubyInfo = JukugoRubyToken & MiddleCommonRubyInfo;
 
 export interface DefinedAttribute {
   rubySize?: string | null;
@@ -44,14 +43,25 @@ export interface DefinedAttribute {
   narrow?: boolean | null;
 }
 
+export interface RubyToken {
+  type: "ruby";
+  ruby: string;
+  base: string;
+  starts: boolean;
+  outlineIndex: number;
+}
+
+export interface JukugoRubyToken {
+  type: "jukugo-ruby";
+  ruby: string[];
+  base: string;
+  starts: boolean;
+  outlineIndex: number;
+}
+
 export type Token =
-  | {
-      type: "ruby";
-      ruby: string;
-      base: string;
-      starts: boolean;
-      outlineIndex: number;
-    }
+  | RubyToken
+  | JukugoRubyToken
   | { type: "attribute"; key: string; value: string };
 
 // alignment

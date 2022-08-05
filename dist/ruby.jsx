@@ -141,6 +141,11 @@ var rubyDelimiters = {
     to: "]",
     split: "|"
 };
+var jukugoRubyDelimiters = {
+    from: "<",
+    to: ">",
+    split: "|"
+};
 var attributeDelimiters = {
     from: "(",
     to: ")",
@@ -169,13 +174,19 @@ var tokenizeText = function (baseText) {
     var finalBaseDifference = 0;
     for (var i = 0; i < removedSpaceText.length; i++) {
         // ruby
-        if (removedSpaceText[i] === rubyDelimiters.from &&
-            removedSpaceText[i + 1] !== rubyDelimiters.from) {
+        var startsJukugoRuby = removedSpaceText[i] === jukugoRubyDelimiters.from;
+        if ((removedSpaceText[i] === rubyDelimiters.from &&
+            removedSpaceText[i + 1] !== rubyDelimiters.from) ||
+            (startsJukugoRuby &&
+                removedSpaceText[i + 1] !== jukugoRubyDelimiters.from)) {
             var subsequentText = removedSpaceText.substring(i);
-            var toIndex = subsequentText.indexOf(rubyDelimiters.to);
+            var delimiter = startsJukugoRuby
+                ? jukugoRubyDelimiters
+                : rubyDelimiters;
+            var toIndex = subsequentText.indexOf(delimiter.to);
             var splited = subsequentText
                 .substring(1, toIndex)
-                .split(rubyDelimiters.split);
+                .split(delimiter.split);
             if (splited.length < 2) {
                 continue;
             }
@@ -183,14 +194,29 @@ var tokenizeText = function (baseText) {
             for (var j = 1; j < Math.max(splited.length, 2); j++) {
                 // `ruby1/ruby2` is separated into mono rubys.
                 var splitedMono = splited[j].split("/");
-                for (var k = 0; k < Math.min(splitedMono.length, splited[0].length); k++) {
+                if (splitedMono.length > 1 &&
+                    splitedMono.length !== splited[0].length) {
+                    continue;
+                }
+                if (startsJukugoRuby) {
                     tokens.push({
-                        type: "ruby",
-                        ruby: splitedMono[k],
-                        base: splitedMono.length === 1 ? splited[0] : splited[0][k],
-                        starts: j == 1,
-                        outlineIndex: i - finalBaseDifference + k
+                        type: "jukugo-ruby",
+                        ruby: splited[1],
+                        base: splited[0],
+                        starts: j === 1,
+                        outlineIndex: i - finalBaseDifference
                     });
+                }
+                else {
+                    for (var k = 0; k < splitedMono.length; k++) {
+                        tokens.push({
+                            type: "ruby",
+                            ruby: splitedMono[k],
+                            base: splitedMono.length === 1 ? splited[0] : splited[0][k],
+                            starts: j === 1,
+                            outlineIndex: i - finalBaseDifference + k
+                        });
+                    }
                 }
             }
             finalBaseDifference += toIndex + 1 - splited[0].length;
@@ -225,7 +251,7 @@ var applyAttributesToRubys = function (tokens) {
     for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
         var token = tokens_1[_i];
         // ruby
-        if (token.type === "ruby") {
+        if (token.type === "ruby" || token.type === "jukugo-ruby") {
             // add an information of ruby
             var ruby = {
                 ruby: token.ruby,
@@ -339,7 +365,6 @@ var addRubys = function (rubyList, isVertical) {
             .every(function (character) { return (0, character_1.classifyCharacterClass)(character) === "kanji"; })
             ? ruby.size.base * ruby.base.length
             : 0);
-        var descender = -120;
         // create the textframe for a ruby
         var textFrame = rubyGroup.textFrames.add();
         textFrame.textRange.characterAttributes.size = ruby.size.ruby;
