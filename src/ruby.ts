@@ -43,21 +43,24 @@ export interface DefinedAttribute {
   narrow?: boolean | null;
 }
 
-export interface RubyToken {
-  type: "ruby";
-  ruby: string;
+interface CommonRubyToken {
   base: string;
   starts: boolean;
+  charIndex: number;
   outlineIndex: number;
 }
 
-export interface JukugoRubyToken {
+export type RubyToken = {
+  type: "ruby";
+  ruby: string;
+} & CommonRubyToken;
+
+export type JukugoRubyToken = {
   type: "jukugo-ruby";
   ruby: string[];
-  base: string;
-  starts: boolean;
-  outlineIndex: number;
-}
+  beforeChar: string;
+  afterChar: string;
+} & CommonRubyToken;
 
 export type Token =
   | RubyToken

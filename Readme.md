@@ -12,6 +12,7 @@ This script implements writing Japanese ruby characters, which Illustrator does 
 [サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
 
 ## 主な仕様
+- モノルビ・熟語ルビ・グループルビに対応しています。
 - ポイント文字、エリア内文字、パス上文字に対して、縦組・横組いずれの場合もルビを振ることができます。
 - パス上文字の場合、ルビは水平方向（縦組の場合は垂直方向）に配置されます。パスに沿ってルビが回転することはありません。
 - スレッドテキストには対応していません。
@@ -24,6 +25,7 @@ This script implements writing Japanese ruby characters, which Illustrator does 
 - `[親文字|ルビ1/ルビ2/...]`：モノルビとして `ルビ1` が親文字の 1 文字目に対応します。
 - `<親文字|ルビ1/ルビ2/...>`：熟語ルビとして `ルビ1` が親文字の 1 文字目に対応します。
   - スラッシュで区切られたルビの数は、親文字の文字数と一致する必要があります。
+  - 親文字のサイズは統一されている必要があります。また、ルビのサイズは親文字の 1/2 になります。
 - `[親文字|上側ルビ|下側ルビ]`：上側・下側の両サイドにルビを付与します。
 
 ```

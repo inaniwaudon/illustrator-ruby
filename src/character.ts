@@ -69,9 +69,19 @@ export const kanjiCodes = [
 
 export const classifyCharacterClass = (character: string) => {
   const code = character.charCodeAt(0);
-  return code === undefined
-    ? null
-    : kanjiCodes.some((value) => value[0] <= code && code <= value[1])
-    ? "kanji"
-    : null;
+  if (code === undefined) {
+    return null;
+  }
+  if (kanjiCodes.some((value) => value[0] <= code && code <= value[1])) {
+    return "kanji";
+  }
+  if (character.match(new RegExp(`^[ぁ-んァ-ン]$`))) {
+    return "kana";
+  }
+  return null;
+};
+
+export const getOverhangingRubyCount = (character: string) => {
+  const charClass = classifyCharacterClass(character);
+  return charClass === "kanji" ? 0 : charClass === "kana" ? 1.0 : 0;
 };
