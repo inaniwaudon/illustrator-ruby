@@ -302,7 +302,7 @@ const convertJukugoRubys = (
         let putBeforeRuby = "";
         let tempMiddleRubys: MiddleRubyInfo[] = [];
         let akis: number[] = [];
-        let overflows: "start" | "end" | null = null;
+        let overflows = false;
         let advance = advances ? 1 : -1;
         for (
           let i = advances ? 0 : middleRuby.ruby.length - 1;
@@ -349,17 +349,17 @@ const convertJukugoRubys = (
           }
           if (0 < leftRatio) {
             // overhang the single after character outside an the compound word
-            if (i === middleRuby.ruby.length - 1) {
+            if (advances && i === middleRuby.ruby.length - 1) {
               leftRatio -=
                 getOverhangingRubyCount(middleRuby.afterChar) * rubyRatio;
-              overflows = "end";
+              overflows = true;
               alignment = "kata";
             }
             // overhang the single after character outside an the compound word
-            else if (i === 0) {
+            else if (!advances && i === 0) {
               leftRatio -=
                 getOverhangingRubyCount(middleRuby.beforeChar) * rubyRatio;
-              overflows = "start";
+              overflows = true;
               alignment = "shita";
             }
           }
@@ -372,12 +372,7 @@ const convertJukugoRubys = (
           const rubyText = advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2);
           const middleRubyInfo: MiddleRubyInfo = {
             type: "ruby",
-            ruby:
-              overflows === "start"
-                ? leftRuby.slice(0, 3)
-                : overflows === "end"
-                ? leftRuby.slice(-3)
-                : rubyText,
+            ruby: overflows ? leftRuby : rubyText,
             base: middleRuby.base[i],
             starts: middleRuby.starts,
             charIndex: middleRuby.charIndex + i,
@@ -387,18 +382,7 @@ const convertJukugoRubys = (
           middleRubyInfo.alignment = alignment ?? middleRubyInfo.alignment;
           middleRubyInfo.narrow = false;
           tempMiddleRubys.push(middleRubyInfo as MiddleRubyInfo);
-
-          if (overflows === "start") {
-            putBeforeRuby = leftRuby.slice(3);
-          } else if (overflows === "end") {
-            putBeforeRuby = advances
-              ? leftRuby.slice(2)
-              : leftRuby.slice(0, -2);
-          } else {
-            putBeforeRuby = advances
-              ? leftRuby.slice(2)
-              : leftRuby.slice(0, -2);
-          }
+          putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
         }
         return [tempMiddleRubys, akis];
       };

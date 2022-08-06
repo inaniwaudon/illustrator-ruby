@@ -354,7 +354,7 @@ var convertJukugoRubys = function (middleRubys, characters) {
                 var putBeforeRuby = "";
                 var tempMiddleRubys = [];
                 var akis = [];
-                var overflows = null;
+                var overflows = false;
                 var advance = advances ? 1 : -1;
                 for (var i = advances ? 0 : middleRuby.ruby.length - 1; advances ? i < middleRuby.ruby.length : i >= 0; i += advance) {
                     var isNotLast = i < middleRuby.ruby.length - 1;
@@ -391,17 +391,17 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     }
                     if (0 < leftRatio) {
                         // overhang the single after character outside an the compound word
-                        if (i === middleRuby.ruby.length - 1) {
+                        if (advances && i === middleRuby.ruby.length - 1) {
                             leftRatio -=
                                 (0, character_1.getOverhangingRubyCount)(middleRuby.afterChar) * rubyRatio_1;
-                            overflows = "end";
+                            overflows = true;
                             alignment_1 = "kata";
                         }
                         // overhang the single after character outside an the compound word
-                        else if (i === 0) {
+                        else if (!advances && i === 0) {
                             leftRatio -=
                                 (0, character_1.getOverhangingRubyCount)(middleRuby.beforeChar) * rubyRatio_1;
-                            overflows = "start";
+                            overflows = true;
                             alignment_1 = "shita";
                         }
                     }
@@ -413,11 +413,7 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     var rubyText = advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2);
                     var middleRubyInfo = {
                         type: "ruby",
-                        ruby: overflows === "start"
-                            ? leftRuby.slice(0, 3)
-                            : overflows === "end"
-                                ? leftRuby.slice(-3)
-                                : rubyText,
+                        ruby: overflows ? leftRuby : rubyText,
                         base: middleRuby.base[i],
                         starts: middleRuby.starts,
                         charIndex: middleRuby.charIndex + i,
@@ -427,19 +423,7 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     middleRubyInfo.alignment = alignment_1 !== null && alignment_1 !== void 0 ? alignment_1 : middleRubyInfo.alignment;
                     middleRubyInfo.narrow = false;
                     tempMiddleRubys.push(middleRubyInfo);
-                    if (overflows === "start") {
-                        putBeforeRuby = leftRuby.slice(3);
-                    }
-                    else if (overflows === "end") {
-                        putBeforeRuby = advances
-                            ? leftRuby.slice(2)
-                            : leftRuby.slice(0, -2);
-                    }
-                    else {
-                        putBeforeRuby = advances
-                            ? leftRuby.slice(2)
-                            : leftRuby.slice(0, -2);
-                    }
+                    putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
                 }
                 return [tempMiddleRubys, akis];
             };
