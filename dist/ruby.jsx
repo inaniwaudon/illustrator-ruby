@@ -81,12 +81,35 @@ var classifyCharacterClass = function (character) {
     if (character.match(new RegExp("^[\u3041-\u3093\u30A1-\u30F3]$"))) {
         return "kana";
     }
+    if ("\u2018\u201C\uFF08\u3014\uFF3B\uFF5B\u3008\u300A\u300C\u300E\u3010\uFF5F\u3018\u3016\u00AB\u301D".includes(character)) {
+        return "openingBracket";
+    }
+    if ("\u2019\u201D\uFF09\u3015\uFF3D\uFF5D\u3009\u300B\u300D\u300F\u3011\uFF60\u3019\u3017\u00BB\u301F".includes(character)) {
+        return "closingBracket";
+    }
+    if ("\u3002.".includes(character)) {
+        return "fullStop";
+    }
+    if ("\u3001\uFF0C".includes(character)) {
+        return "comma";
+    }
     return null;
 };
 exports.classifyCharacterClass = classifyCharacterClass;
 var getOverhangingRubyCount = function (character) {
     var charClass = (0, exports.classifyCharacterClass)(character);
-    return charClass === "kanji" ? 0 : charClass === "kana" ? 1.0 : 0;
+    if (charClass === null) {
+        return 0;
+    }
+    return [
+        "kana",
+        "openingBracket",
+        "closingBracket",
+        "fullStop",
+        "comma",
+    ].includes(charClass)
+        ? 1.0
+        : 0;
 };
 exports.getOverhangingRubyCount = getOverhangingRubyCount;
 
@@ -391,15 +414,22 @@ var convertJukugoRubys = function (middleRubys, characters) {
                 };
                 applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
                 var leftCount = rubyText.length;
-                if (index === 0 && leftCount > 2 && maxRubyCounts_1[0] > 2) {
-                    newMiddleRuby.alignment = "shita";
-                    leftCount--;
+                if (middleRuby.ruby.length === 1) {
+                    // 中にするとは限らない
+                    newMiddleRuby.alignment = "naka";
+                    leftCount -= maxRubyCounts_1[0] - 2;
                 }
-                if (index === middleRuby.ruby.length - 1 &&
-                    leftCount > 2 &&
-                    maxRubyCounts_1[index] > 2) {
-                    newMiddleRuby.alignment = "kata";
-                    leftCount--;
+                else {
+                    if (index === 0 && leftCount > 2 && maxRubyCounts_1[0] > 2) {
+                        newMiddleRuby.alignment = "shita";
+                        leftCount--;
+                    }
+                    if (index === middleRuby.ruby.length - 1 &&
+                        leftCount > 2 &&
+                        maxRubyCounts_1[index] > 2) {
+                        newMiddleRuby.alignment = "kata";
+                        leftCount--;
+                    }
                 }
                 if (leftCount > 2) {
                     var charAttributes = characters[middleRuby.charIndex + index].characterAttributes;
@@ -635,6 +665,9 @@ Array.prototype.includes = function (value) {
         }
     }
     return false;
+};
+String.prototype.includes = function (value) {
+    return this.split("").includes(value);
 };
 
 

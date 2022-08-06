@@ -78,10 +78,33 @@ export const classifyCharacterClass = (character: string) => {
   if (character.match(new RegExp(`^[ぁ-んァ-ン]$`))) {
     return "kana";
   }
+  if (`‘“（〔［｛〈《「『【｟〘〖«〝`.includes(character)) {
+    return "openingBracket";
+  }
+  if (`’”）〕］｝〉》」』】｠〙〗»〟`.includes(character)) {
+    return "closingBracket";
+  }
+  if (`。.`.includes(character)) {
+    return "fullStop";
+  }
+  if (`、，`.includes(character)) {
+    return "comma";
+  }
   return null;
 };
 
 export const getOverhangingRubyCount = (character: string) => {
   const charClass = classifyCharacterClass(character);
-  return charClass === "kanji" ? 0 : charClass === "kana" ? 1.0 : 0;
+  if (charClass === null) {
+    return 0;
+  }
+  return [
+    "kana",
+    "openingBracket",
+    "closingBracket",
+    "fullStop",
+    "comma",
+  ].includes(charClass)
+    ? 1.0
+    : 0;
 };

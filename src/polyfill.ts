@@ -92,3 +92,7 @@ Array.prototype.includes = function <U>(value: U) {
   }
   return false;
 };
+
+String.prototype.includes = function (value: string) {
+  return this.split("").includes(value);
+};

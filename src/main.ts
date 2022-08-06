@@ -345,17 +345,23 @@ const convertJukugoRubys = (
         };
         applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
         let leftCount = rubyText.length;
-        if (index === 0 && leftCount > 2 && maxRubyCounts[0] > 2) {
-          newMiddleRuby.alignment = "shita";
-          leftCount--;
-        }
-        if (
-          index === middleRuby.ruby.length - 1 &&
-          leftCount > 2 &&
-          maxRubyCounts[index] > 2
-        ) {
-          newMiddleRuby.alignment = "kata";
-          leftCount--;
+        if (middleRuby.ruby.length === 1) {
+          // 中にするとは限らない
+          newMiddleRuby.alignment = "naka";
+          leftCount -= maxRubyCounts[0] - 2;
+        } else {
+          if (index === 0 && leftCount > 2 && maxRubyCounts[0] > 2) {
+            newMiddleRuby.alignment = "shita";
+            leftCount--;
+          }
+          if (
+            index === middleRuby.ruby.length - 1 &&
+            leftCount > 2 &&
+            maxRubyCounts[index] > 2
+          ) {
+            newMiddleRuby.alignment = "kata";
+            leftCount--;
+          }
         }
         if (leftCount > 2) {
           const charAttributes =
