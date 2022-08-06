@@ -1,4 +1,4 @@
-import { applyAttributesToRubys, tokenizeText } from "./main";
+import { applyAttributesToRubyList, tokenizeText } from "./main";
 import { MiddleRubyInfo, Token } from "./ruby";
 
 const sampleBase =
@@ -36,9 +36,10 @@ test("tokenize a text", () => {
 });
 
 test("apply attributes to rubys", () => {
-  const result = applyAttributesToRubys(middleRubys);
+  const result = applyAttributesToRubyList(middleRubys);
   const expected: MiddleRubyInfo[] = [
     {
+      type: "ruby",
       ruby: "こうとう",
       base: "江東",
       starts: true,
@@ -47,6 +48,7 @@ test("apply attributes to rubys", () => {
       alignment: "naka",
     },
     {
+      type: "ruby",
       ruby: "きよ",
       base: "清",
       starts: true,
@@ -56,6 +58,7 @@ test("apply attributes to rubys", () => {
       rubySize: "16Q",
     },
     {
+      type: "ruby",
       ruby: "すみ",
       base: "澄",
       starts: true,
@@ -65,6 +68,7 @@ test("apply attributes to rubys", () => {
       sutegana: true,
     },
     {
+      type: "ruby",
       ruby: "しら",
       base: "白",
       starts: true,
@@ -75,6 +79,7 @@ test("apply attributes to rubys", () => {
       offset: "10H",
     },
     {
+      type: "ruby",
       ruby: "かわ",
       base: "河",
       starts: true,

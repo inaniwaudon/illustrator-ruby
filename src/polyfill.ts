@@ -75,3 +75,20 @@ Array.prototype.every = function <U>(
   }
   return result;
 };
+
+Array.prototype.fill = function <U>(value: U) {
+  let result = [];
+  for (let i = 0; i < this.length; i++) {
+    result.push(value);
+  }
+  return result;
+};
+
+Array.prototype.includes = function <U>(value: U) {
+  for (const arrrayValue of this) {
+    if (arrrayValue === value) {
+      return true;
+    }
+  }
+  return false;
+};

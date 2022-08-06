@@ -97,7 +97,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 exports.__esModule = true;
-exports.main = exports.applyAttributesToRubys = exports.tokenizeText = void 0;
+exports.main = exports.applyAttributesToRubyList = exports.tokenizeText = void 0;
 var character_1 = __webpack_require__(99);
 var ruby_1 = __webpack_require__(700);
 var convertUnit = function (size, baseSize, ratio) {
@@ -201,7 +201,7 @@ var tokenizeText = function (baseText) {
                 if (startsJukugoRuby) {
                     tokens.push({
                         type: "jukugo-ruby",
-                        ruby: splited[1],
+                        ruby: splitedMono,
                         base: splited[0],
                         starts: j === 1,
                         outlineIndex: i - finalBaseDifference
@@ -245,7 +245,24 @@ var tokenizeText = function (baseText) {
     return tokens;
 };
 exports.tokenizeText = tokenizeText;
-var applyAttributesToRubys = function (tokens) {
+var applyAttributesToMiddleRubyInfo = function (info, attribute) {
+    for (var key in attribute) {
+        if ([
+            "rubySize",
+            "offset",
+            "font",
+            "alignment",
+            "sutegana",
+            "narrow",
+        ].includes(key)) {
+            var value = attribute[key];
+            if (value !== null) {
+                info[key] = value;
+            }
+        }
+    }
+};
+var applyAttributesToRubyList = function (tokens) {
     var defined = {};
     var rubyList = [];
     for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
@@ -254,17 +271,13 @@ var applyAttributesToRubys = function (tokens) {
         if (token.type === "ruby" || token.type === "jukugo-ruby") {
             // add an information of ruby
             var ruby = {
+                type: token.type,
                 ruby: token.ruby,
                 base: token.base,
                 starts: token.starts,
                 outlineIndex: token.outlineIndex
             };
-            for (var key in defined) {
-                var value = defined[key];
-                if (value !== null) {
-                    ruby[key] = value;
-                }
-            }
+            applyAttributesToMiddleRubyInfo(ruby, defined);
             rubyList.push(ruby);
         }
         // attribute
@@ -295,12 +308,125 @@ var applyAttributesToRubys = function (tokens) {
     }
     return rubyList;
 };
-exports.applyAttributesToRubys = applyAttributesToRubys;
-var createRubyInfo = function (middleRubys, finishTextFrame, isVertical) {
-    var _a, _b, _c;
-    var rubyList = [];
+exports.applyAttributesToRubyList = applyAttributesToRubyList;
+var convertJukugoRubys = function (middleRubys, finishTextFrame) {
+    var resultMiddleRubys = [];
+    var _loop_1 = function (middleRuby) {
+        // jukugo-ruby
+        if (middleRuby.type === "jukugo-ruby") {
+            var baseSize_1 = finishTextFrame.characters[middleRuby.outlineIndex].characterAttributes
+                .size;
+            // The ruby for which the parent characters are not of the same size is not processed.
+            if (!middleRuby.ruby.every(function (_, index) {
+                return baseSize_1 ===
+                    finishTextFrame.characters[middleRuby.outlineIndex + index]
+                        .characterAttributes.size;
+            })) {
+                return "continue";
+            }
+            var rubyRatio_1 = 0.5;
+            var process = function (advances) {
+                var leftBaseSpaces = __spreadArray([], Array(middleRuby.base.length), true).fill(1.0);
+                var putBeforeRuby = "";
+                var tempMiddleRubys = [];
+                var overflows = false;
+                var advance = advances ? 1 : -1;
+                for (var i = advances ? 0 : middleRuby.ruby.length - 1; advances ? i < middleRuby.ruby.length : i >= 0; i += advance) {
+                    var isNotLast = i < middleRuby.ruby.length - 1;
+                    var rubyPerBaseChar = middleRuby.ruby[i];
+                    var leftRuby = advances
+                        ? putBeforeRuby + rubyPerBaseChar
+                        : rubyPerBaseChar + putBeforeRuby;
+                    var leftRatio = rubyRatio_1 * leftRuby.length;
+                    // mono ruby
+                    var monoRubyRatio = Math.min(leftBaseSpaces[i], leftRatio);
+                    leftBaseSpaces[i] -= monoRubyRatio;
+                    leftRatio -= monoRubyRatio;
+                    // unable to fit within the base character
+                    // overhang the single after character in the compound word (when moving forward)
+                    var turnsOut = false;
+                    if (0 < leftRatio &&
+                        ((advances && isNotLast) || (!advances && 0 < i)) &&
+                        rubyRatio_1 <= leftBaseSpaces[i + advance]) {
+                        leftRatio -= rubyRatio_1;
+                        turnsOut = true;
+                    }
+                    // overhang the single before character in the compound word (when moving forward)
+                    if (0 < leftRatio &&
+                        ((advances && 0 < i) || (!advances && isNotLast)) &&
+                        rubyRatio_1 <= leftBaseSpaces[i - advance]) {
+                        leftBaseSpaces[i - advance] -= rubyRatio_1;
+                        leftRatio -= rubyRatio_1;
+                        var lastMiddleRuby = tempMiddleRubys[tempMiddleRubys.length - 1];
+                        lastMiddleRuby.ruby = advances
+                            ? lastMiddleRuby.ruby + rubyPerBaseChar[0]
+                            : rubyPerBaseChar[rubyPerBaseChar.length - 1] +
+                                lastMiddleRuby.ruby;
+                        leftRuby = advances ? leftRuby.slice(1) : leftRuby.slice(0, -1);
+                    }
+                    if (0 < leftRatio) {
+                        //const overhungRatio = Math.min(, left);
+                        // overhang the single after character outside an the compound word
+                        if (i === middleRuby.ruby.length - 1) {
+                            leftRatio -= 0;
+                            overflows = true;
+                        }
+                        // overhang the single after character outside an the compound word
+                        else if (i === 0) {
+                            leftRatio -= 0;
+                            turnsOut = true;
+                            overflows = true;
+                        }
+                    }
+                    // insert spaces between the front and back of the compound word
+                    if (0 < leftRatio) {
+                    }
+                    // TODO: insert spaces
+                    var middleRubyInfo = {
+                        type: "ruby",
+                        ruby: advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2),
+                        base: middleRuby.base[i],
+                        starts: middleRuby.starts,
+                        outlineIndex: middleRuby.outlineIndex + i
+                    };
+                    applyAttributesToMiddleRubyInfo(middleRubyInfo, middleRuby);
+                    /*middleRubyInfo.alignment = turnsOut
+                      ? "kata"
+                      : middleRubyInfo.alignment;*/
+                    tempMiddleRubys.push(middleRubyInfo);
+                    putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
+                }
+                return [overflows, tempMiddleRubys];
+            };
+            var _a = process(true), overflowsForward = _a[0], forwardMiddleRubys = _a[1];
+            if (!overflowsForward) {
+                resultMiddleRubys.push.apply(resultMiddleRubys, forwardMiddleRubys);
+            }
+            else {
+                var _b = process(false), overflowsBackward = _b[0], backwardMiddleRubys = _b[1];
+                if (!overflowsBackward) {
+                    resultMiddleRubys.push.apply(resultMiddleRubys, backwardMiddleRubys);
+                }
+                else {
+                    // TODO:
+                }
+            }
+        }
+        else {
+            resultMiddleRubys.push(middleRuby);
+        }
+    };
     for (var _i = 0, middleRubys_1 = middleRubys; _i < middleRubys_1.length; _i++) {
         var middleRuby = middleRubys_1[_i];
+        _loop_1(middleRuby);
+    }
+    return resultMiddleRubys;
+};
+var createRubyInfos = function (middleRubys, finishTextFrame, isVertical) {
+    var _a, _b, _c;
+    var rubyList = [];
+    for (var _i = 0, middleRubys_2 = middleRubys; _i < middleRubys_2.length; _i++) {
+        var middleRuby = middleRubys_2[_i];
         // get outlined paths
         var textOutline = finishTextFrame.duplicate().createOutline();
         var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
@@ -353,7 +479,7 @@ var createRubyInfo = function (middleRubys, finishTextFrame, isVertical) {
 var addRubys = function (rubyList, isVertical) {
     var rubyGroup = activeDocument.groupItems.add();
     rubyGroup.name = "ruby";
-    rubyList.forEach(function (ruby, index) {
+    rubyList.forEach(function (ruby) {
         // The width of the outlined text is smaller than the virtual body (仮想ボディ).
         // When the character class of the parent character is Kanji,
         // the parent character is assumed to be full-width,
@@ -417,8 +543,9 @@ var main = function () {
     }
     var isVertical = selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
     var tokens = (0, exports.tokenizeText)(selectedTextFrame.base.contents);
-    var middleRubys = (0, exports.applyAttributesToRubys)(tokens);
-    var rubyList = createRubyInfo(middleRubys, selectedTextFrame.finish, isVertical);
+    var mixedMiddleRubys = (0, exports.applyAttributesToRubyList)(tokens);
+    var middleRubys = convertJukugoRubys(mixedMiddleRubys, selectedTextFrame.finish);
+    var rubyList = createRubyInfos(middleRubys, selectedTextFrame.finish, isVertical);
     addRubys(rubyList, isVertical);
     alert("".concat(rubyList.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
 };
@@ -487,6 +614,22 @@ Array.prototype.every = function (predicate) {
         result && (result = predicate(this[i], i, this));
     }
     return result;
+};
+Array.prototype.fill = function (value) {
+    var result = [];
+    for (var i = 0; i < this.length; i++) {
+        result.push(value);
+    }
+    return result;
+};
+Array.prototype.includes = function (value) {
+    for (var _i = 0, _a = this; _i < _a.length; _i++) {
+        var arrrayValue = _a[_i];
+        if (arrrayValue === value) {
+            return true;
+        }
+    }
+    return false;
 };
 
 

@@ -181,7 +181,30 @@ export const tokenizeText = (baseText: string) => {
   return tokens;
 };
 
-export const applyAttributesToRubys = (tokens: Token[]) => {
+const applyAttributesToMiddleRubyInfo = (
+  info: { [key in string]: any },
+  attribute: DefinedAttribute
+) => {
+  for (const key in attribute) {
+    if (
+      [
+        "rubySize",
+        "offset",
+        "font",
+        "alignment",
+        "sutegana",
+        "narrow",
+      ].includes(key)
+    ) {
+      const value = attribute[key as keyof DefinedAttribute];
+      if (value !== null) {
+        info[key] = value as any;
+      }
+    }
+  }
+};
+
+export const applyAttributesToRubyList = (tokens: Token[]) => {
   const defined: DefinedAttribute = {};
   const rubyList: (MiddleRubyInfo | MiddleJukugoRubyInfo)[] = [];
 
@@ -196,13 +219,8 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
         starts: token.starts,
         outlineIndex: token.outlineIndex,
       };
-      for (const key in defined) {
-        const value = defined[key as keyof DefinedAttribute];
-        if (value !== null) {
-          (ruby as any)[key] = value as any;
-        }
-      }
-      rubyList.push(ruby as any);
+      applyAttributesToMiddleRubyInfo(ruby, defined);
+      rubyList.push(ruby as MiddleRubyInfo | MiddleJukugoRubyInfo);
     }
     // attribute
     else if (token.type === "attribute") {
@@ -233,24 +251,13 @@ export const applyAttributesToRubys = (tokens: Token[]) => {
   return rubyList;
 };
 
-const createRubyInfo = (
+const convertJukugoRubys = (
   middleRubys: (MiddleRubyInfo | MiddleJukugoRubyInfo)[],
-  finishTextFrame: any,
-  isVertical: boolean
+  finishTextFrame: any
 ) => {
-  const rubyList: RubyInfo[] = [];
+  const resultMiddleRubys: MiddleRubyInfo[] = [];
 
   for (const middleRuby of middleRubys) {
-    // get outlined paths
-    const textOutline = (
-      finishTextFrame.duplicate() as TextFrame
-    ).createOutline();
-    const basePaths = [...textOutline.compoundPathItems].slice(
-      textOutline.compoundPathItems.length -
-        (middleRuby.outlineIndex + middleRuby.base.length),
-      textOutline.compoundPathItems.length - middleRuby.outlineIndex
-    );
-
     // jukugo-ruby
     if (middleRuby.type === "jukugo-ruby") {
       const baseSize =
@@ -268,43 +275,128 @@ const createRubyInfo = (
         continue;
       }
       const rubyRatio = 0.5;
-      const leftBaseSpaces = [...Array(middleRuby.base.length)].fill(1.0);
 
-      middleRuby.ruby.forEach((ruby, index) => {
-        let left = rubyRatio * ruby.length;
-        // mono ruby
-        const monoRubyRatio = Math.min(
-          leftBaseSpaces[index],
-          rubyRatio * ruby.length
-        );
-        leftBaseSpaces[index] -= monoRubyRatio;
-        left -= monoRubyRatio;
-        // unable to fit within the base character
-        // overhang the single after character in the compound word
-        if (0 < left && index < middleRuby.ruby.length - 1) {
-          leftBaseSpaces[index + 1] -= left;
-        }
-        // overhang the single before character in the compound word
-        if (0 < left && 0 < index && left <= leftBaseSpaces[index - 1]) {
-          leftBaseSpaces[index - 1] -= left;
-        }
-        if (0 < left) {
-          // overhang the single after character outside an the compound word
-          if (index === 0 && ) {
+      const process = (advances: boolean): [boolean, MiddleRubyInfo[]] => {
+        const leftBaseSpaces = [...Array(middleRuby.base.length)].fill(1.0);
+        let putBeforeRuby = "";
+        let tempMiddleRubys: MiddleRubyInfo[] = [];
+        let overflows = false;
+        let advance = advances ? 1 : -1;
+
+        for (
+          let i = advances ? 0 : middleRuby.ruby.length - 1;
+          advances ? i < middleRuby.ruby.length : i >= 0;
+          i += advance
+        ) {
+          const isNotLast = i < middleRuby.ruby.length - 1;
+          const rubyPerBaseChar = middleRuby.ruby[i];
+          let leftRuby = advances
+            ? putBeforeRuby + rubyPerBaseChar
+            : rubyPerBaseChar + putBeforeRuby;
+          let leftRatio = rubyRatio * leftRuby.length;
+
+          // mono ruby
+          const monoRubyRatio = Math.min(leftBaseSpaces[i], leftRatio);
+          leftBaseSpaces[i] -= monoRubyRatio;
+          leftRatio -= monoRubyRatio;
+
+          // unable to fit within the base character
+          // overhang the single after character in the compound word (when moving forward)
+          let turnsOut = false;
+          if (
+            0 < leftRatio &&
+            ((advances && isNotLast) || (!advances && 0 < i)) &&
+            rubyRatio <= leftBaseSpaces[i + advance]
+          ) {
+            leftRatio -= rubyRatio;
+            turnsOut = true;
           }
-          // overhang the single after character outside an the compound word
-          else if (index === middleRuby.ruby.length - 1 && ) {
+          // overhang the single before character in the compound word (when moving forward)
+          if (
+            0 < leftRatio &&
+            ((advances && 0 < i) || (!advances && isNotLast)) &&
+            rubyRatio <= leftBaseSpaces[i - advance]
+          ) {
+            leftBaseSpaces[i - advance] -= rubyRatio;
+            leftRatio -= rubyRatio;
+            const lastMiddleRuby = tempMiddleRubys[tempMiddleRubys.length - 1];
+            lastMiddleRuby.ruby = advances
+              ? lastMiddleRuby.ruby + rubyPerBaseChar[0]
+              : rubyPerBaseChar[rubyPerBaseChar.length - 1] +
+                lastMiddleRuby.ruby;
+            leftRuby = advances ? leftRuby.slice(1) : leftRuby.slice(0, -1);
+          }
+          if (0 < leftRatio) {
+            //const overhungRatio = Math.min(, left);
+            // overhang the single after character outside an the compound word
+            if (i === middleRuby.ruby.length - 1) {
+              leftRatio -= 0;
+              overflows = true;
+            }
+            // overhang the single after character outside an the compound word
+            else if (i === 0) {
+              leftRatio -= 0;
+              turnsOut = true;
+              overflows = true;
+            }
           }
           // insert spaces between the front and back of the compound word
-          else {
-
+          if (0 < leftRatio) {
           }
+
+          // TODO: insert spaces
+          const middleRubyInfo: MiddleRubyInfo = {
+            type: "ruby",
+            ruby: advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2),
+            base: middleRuby.base[i],
+            starts: middleRuby.starts,
+            outlineIndex: middleRuby.outlineIndex + i,
+          };
+          applyAttributesToMiddleRubyInfo(middleRubyInfo, middleRuby);
+          /*middleRubyInfo.alignment = turnsOut
+            ? "kata"
+            : middleRubyInfo.alignment;*/
+          tempMiddleRubys.push(middleRubyInfo as MiddleRubyInfo);
+          putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
         }
-      });
+        return [overflows, tempMiddleRubys];
+      };
+
+      const [overflowsForward, forwardMiddleRubys] = process(true);
+      if (!overflowsForward) {
+        resultMiddleRubys.push(...forwardMiddleRubys);
+      } else {
+        const [overflowsBackward, backwardMiddleRubys] = process(false);
+        if (!overflowsBackward) {
+          resultMiddleRubys.push(...backwardMiddleRubys);
+        } else {
+          // TODO:
+        }
+      }
+    } else {
+      resultMiddleRubys.push(middleRuby);
     }
-    // mono-ruby, group-ruby
-    else {
-    }
+  }
+  return resultMiddleRubys;
+};
+
+const createRubyInfos = (
+  middleRubys: MiddleRubyInfo[],
+  finishTextFrame: any,
+  isVertical: boolean
+) => {
+  const rubyList: RubyInfo[] = [];
+
+  for (const middleRuby of middleRubys) {
+    // get outlined paths
+    const textOutline = (
+      finishTextFrame.duplicate() as TextFrame
+    ).createOutline();
+    const basePaths = [...textOutline.compoundPathItems].slice(
+      textOutline.compoundPathItems.length -
+        (middleRuby.outlineIndex + middleRuby.base.length),
+      textOutline.compoundPathItems.length - middleRuby.outlineIndex
+    );
 
     // add an information of ruby
     const charAttributes =
@@ -357,7 +449,6 @@ const createRubyInfo = (
     if (middleRuby.offset !== undefined) {
       ruby.offset = convertUnit(middleRuby.offset, ruby.size.base, 0);
     }
-
     rubyList.push(ruby);
     textOutline.remove();
   }
@@ -447,8 +538,12 @@ export const main = () => {
     selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
 
   const tokens = tokenizeText(selectedTextFrame.base.contents);
-  const middleRubys = applyAttributesToRubys(tokens);
-  const rubyList = createRubyInfo(
+  const mixedMiddleRubys = applyAttributesToRubyList(tokens);
+  const middleRubys = convertJukugoRubys(
+    mixedMiddleRubys,
+    selectedTextFrame.finish
+  );
+  const rubyList = createRubyInfos(
     middleRubys,
     selectedTextFrame.finish,
     isVertical
