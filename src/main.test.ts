@@ -7,7 +7,7 @@ const sampleBase =
 // TODO: sutegana を判別できる文字でテスト
 // TODO: 上下にルビを付ける
 
-const middleRubys: Token[] = [
+/*const middleRubys: Token[] = [
   { type: "attribute", key: "narrow", value: "false" },
   { type: "attribute", key: "align", value: "naka" },
   {
@@ -93,3 +93,4 @@ test("apply attributes to rubys", () => {
   ];
   expect(result).toEqual(expected);
 });
+*/

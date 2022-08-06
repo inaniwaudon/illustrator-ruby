@@ -68,7 +68,12 @@ export type Token =
   | { type: "attribute"; key: string; value: string };
 
 // alignment
-export const alignment = { kata: "kata", naka: "naka", jis: "jis" } as const;
+export const alignment = {
+  kata: "kata",
+  naka: "naka",
+  jis: "jis",
+  shita: "shita",
+} as const;
 export type alignment = typeof alignment[keyof typeof alignment];
 export const isAlignment = (value: string): value is alignment =>
   value in alignment;
