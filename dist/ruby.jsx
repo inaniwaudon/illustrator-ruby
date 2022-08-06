@@ -348,108 +348,68 @@ var convertJukugoRubys = function (middleRubys, characters) {
             })) {
                 return "continue";
             }
-            var rubyRatio_1 = 0.5;
-            var process = function (advances, overhangs) {
-                var leftBaseSpaces = __spreadArray([], Array(middleRuby.base.length), true).fill(1.0);
-                var putBeforeRuby = "";
-                var tempMiddleRubys = [];
-                var akis = [];
-                var overflows = false;
-                var advance = advances ? 1 : -1;
-                for (var i = advances ? 0 : middleRuby.ruby.length - 1; advances ? i < middleRuby.ruby.length : i >= 0; i += advance) {
-                    var isNotLast = i < middleRuby.ruby.length - 1;
-                    var rubyPerBaseChar = middleRuby.ruby[i];
-                    var leftRuby = advances
-                        ? putBeforeRuby + rubyPerBaseChar
-                        : rubyPerBaseChar + putBeforeRuby;
-                    var leftRatio = rubyRatio_1 * leftRuby.length;
-                    var alignment_1 = null;
-                    akis.push(0);
-                    // mono ruby
-                    var monoRubyRatio = Math.min(leftBaseSpaces[i], leftRatio);
-                    leftBaseSpaces[i] -= monoRubyRatio;
-                    leftRatio -= monoRubyRatio;
-                    // unable to fit within the base character
-                    // overhang the single after character in the compound word (when moving forward)
-                    if (0 < leftRatio &&
-                        ((advances && isNotLast) || (!advances && 0 < i)) &&
-                        rubyRatio_1 <= leftBaseSpaces[i + advance]) {
-                        leftRatio -= rubyRatio_1;
-                    }
-                    // overhang the single before character in the compound word (when moving forward)
-                    if (0 < leftRatio &&
-                        ((advances && 0 < i) || (!advances && isNotLast)) &&
-                        rubyRatio_1 <= leftBaseSpaces[i - advance]) {
-                        leftBaseSpaces[i - advance] -= rubyRatio_1;
-                        leftRatio -= rubyRatio_1;
-                        var lastMiddleRuby = tempMiddleRubys[tempMiddleRubys.length - 1];
-                        lastMiddleRuby.ruby = advances
-                            ? lastMiddleRuby.ruby + rubyPerBaseChar[0]
-                            : rubyPerBaseChar[rubyPerBaseChar.length - 1] +
-                                lastMiddleRuby.ruby;
-                        leftRuby = advances ? leftRuby.slice(1) : leftRuby.slice(0, -1);
-                    }
-                    if (0 < leftRatio) {
-                        // overhang the single after character outside an the compound word
-                        if (advances && i === middleRuby.ruby.length - 1) {
-                            leftRatio -=
-                                (0, character_1.getOverhangingRubyCount)(middleRuby.afterChar) * rubyRatio_1;
-                            overflows = true;
-                            alignment_1 = "kata";
-                        }
-                        // overhang the single after character outside an the compound word
-                        else if (!advances && i === 0) {
-                            leftRatio -=
-                                (0, character_1.getOverhangingRubyCount)(middleRuby.beforeChar) * rubyRatio_1;
-                            overflows = true;
-                            alignment_1 = "shita";
+            var maxRubyCounts_1 = __spreadArray([], Array(middleRuby.ruby.length), true).fill(2);
+            maxRubyCounts_1[0] += (0, character_1.getOverhangingRubyCount)(middleRuby.beforeChar);
+            maxRubyCounts_1[maxRubyCounts_1.length - 1] += (0, character_1.getOverhangingRubyCount)(middleRuby.afterChar);
+            var getSplit_1 = function (split) {
+                if (split.length === middleRuby.ruby.length - 1) {
+                    // calculate the penalty
+                    var penalty = 0;
+                    for (var i = 0; i < middleRuby.ruby.length; i++) {
+                        var rubyCount = middleRuby.ruby[i].length -
+                            (i > 0 ? split[i - 1] : 0) +
+                            (i < split.length ? split[i] : 0);
+                        penalty += Math.max(rubyCount - maxRubyCounts_1[i], 0) * 10;
+                        if (maxRubyCounts_1[i] > 2 && rubyCount > 2) {
+                            penalty += i === 0 ? 2 : 1;
                         }
                     }
-                    // insert spaces between the front and back of the compound word
-                    if (0 < leftRatio) {
-                        akis[i] = leftRatio;
-                        alignment_1 = "naka";
-                    }
-                    var rubyText = advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2);
-                    var middleRubyInfo = {
-                        type: "ruby",
-                        ruby: overflows ? leftRuby : rubyText,
-                        base: middleRuby.base[i],
-                        starts: middleRuby.starts,
-                        charIndex: middleRuby.charIndex + i,
-                        outlineIndex: middleRuby.outlineIndex + i
-                    };
-                    applyAttributesToMiddleRubyInfo(middleRubyInfo, middleRuby);
-                    middleRubyInfo.alignment = alignment_1 !== null && alignment_1 !== void 0 ? alignment_1 : middleRubyInfo.alignment;
-                    middleRubyInfo.narrow = false;
-                    tempMiddleRubys.push(middleRubyInfo);
-                    putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
+                    return [penalty, split];
                 }
-                return [tempMiddleRubys, akis];
+                return [
+                    getSplit_1(__spreadArray(__spreadArray([], split, true), [-1], false)),
+                    getSplit_1(__spreadArray(__spreadArray([], split, true), [0], false)),
+                    getSplit_1(__spreadArray(__spreadArray([], split, true), [1], false)),
+                ].sort(function (a, b) { return a[0] - b[0]; })[0];
             };
-            var applyAkis = function (akis) {
-                for (var i = 0; i < akis.length; i++) {
-                    var charAttributes = characters[middleRuby.charIndex + i].characterAttributes;
-                    charAttributes.akiLeft = akis[i];
-                    charAttributes.akiRight = akis[i];
+            var _a = getSplit_1([]), _ = _a[0], split_1 = _a[1];
+            middleRuby.ruby.forEach(function (ruby, index) {
+                var rubyText = (index > 0 && split_1[index - 1] === -1
+                    ? middleRuby.ruby[index - 1].slice(-1)
+                    : "") +
+                    ruby.slice(index > 0 ? Math.max(split_1[index - 1], 0) : 0, ruby.length + (index < split_1.length ? Math.min(split_1[index], 0) : 0)) +
+                    (index < split_1.length && split_1[index] === 1
+                        ? middleRuby.ruby[index + 1].slice(0, 1)
+                        : "");
+                var newMiddleRuby = {
+                    type: "ruby",
+                    ruby: rubyText,
+                    base: middleRuby.base[index],
+                    starts: middleRuby.starts,
+                    charIndex: middleRuby.charIndex + index,
+                    outlineIndex: middleRuby.outlineIndex + index
+                };
+                applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
+                var leftCount = rubyText.length;
+                if (index === 0 && leftCount > 2 && maxRubyCounts_1[0] > 2) {
+                    newMiddleRuby.alignment = "shita";
+                    leftCount--;
                 }
-            };
-            var sum_1 = function (array) {
-                return array.reduce(function (previous, value) { return previous + value; });
-            };
-            var processedList = [
-                __spreadArray(__spreadArray([], process(true, false), true), [0], false),
-                //[...process(false, false), 1],
-                //[...process(true, true), 2],
-                //[...process(false, true), 3],
-            ];
-            var processed = processedList.sort(function (_a, _b) {
-                var _ = _a[0], x = _a[1], xi = _a[2];
-                var __ = _b[0], y = _b[1], yi = _b[2];
-                return sum_1(x) - sum_1(y) === 0 ? xi - yi : sum_1(x) - sum_1(y);
-            })[0];
-            resultMiddleRubys.push.apply(resultMiddleRubys, processed[0]);
-            applyAkis(processed[1]);
+                if (index === middleRuby.ruby.length - 1 &&
+                    leftCount > 2 &&
+                    maxRubyCounts_1[index] > 2) {
+                    newMiddleRuby.alignment = "kata";
+                    leftCount--;
+                }
+                if (leftCount > 2) {
+                    var charAttributes = characters[middleRuby.charIndex + index].characterAttributes;
+                    charAttributes.akiLeft = (leftCount - 2) / 4;
+                    charAttributes.akiRight = (leftCount - 2) / 4;
+                    newMiddleRuby.alignment = "naka";
+                }
+                newMiddleRuby.narrow = false;
+                resultMiddleRubys.push(newMiddleRuby);
+            });
         }
         else {
             resultMiddleRubys.push(middleRuby);
@@ -555,7 +515,7 @@ var addRubys = function (rubyList, isVertical) {
                 rubyAdjustment += (baseLength - rubyLength) / 2;
             }
             else if (ruby.alignment === "jis") {
-                rubyAdjustment += ((baseLength - rubyLength) / ruby.ruby.length) * 2;
+                rubyAdjustment += (baseLength - rubyLength) / (ruby.ruby.length * 2);
             }
         }
         var basePosition = (isVertical ? ruby.x : ruby.y) +

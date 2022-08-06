@@ -14,7 +14,6 @@ import {
   RubyInfo,
   Token,
   MiddleJukugoRubyInfo,
-  alignment,
 } from "./ruby";
 
 const convertUnit = (size: string, baseSize: number, ratio: number) => {
@@ -292,122 +291,82 @@ const convertJukugoRubys = (
       ) {
         continue;
       }
-      const rubyRatio = 0.5;
 
-      const process = (
-        advances: boolean,
-        overhangs: boolean
-      ): [MiddleRubyInfo[], number[]] => {
-        const leftBaseSpaces = [...Array(middleRuby.base.length)].fill(1.0);
-        let putBeforeRuby = "";
-        let tempMiddleRubys: MiddleRubyInfo[] = [];
-        let akis: number[] = [];
-        let overflows = false;
-        let advance = advances ? 1 : -1;
-        for (
-          let i = advances ? 0 : middleRuby.ruby.length - 1;
-          advances ? i < middleRuby.ruby.length : i >= 0;
-          i += advance
+      const maxRubyCounts = [...Array(middleRuby.ruby.length)].fill(2);
+      maxRubyCounts[0] += getOverhangingRubyCount(middleRuby.beforeChar);
+      maxRubyCounts[maxRubyCounts.length - 1] += getOverhangingRubyCount(
+        middleRuby.afterChar
+      );
+
+      const getSplit = (split: number[]): [number, number[]] => {
+        if (split.length === middleRuby.ruby.length - 1) {
+          // calculate the penalty
+          let penalty = 0;
+          for (let i = 0; i < middleRuby.ruby.length; i++) {
+            const rubyCount =
+              middleRuby.ruby[i].length -
+              (i > 0 ? split[i - 1] : 0) +
+              (i < split.length ? split[i] : 0);
+            penalty += Math.max(rubyCount - maxRubyCounts[i], 0) * 10;
+            if (maxRubyCounts[i] > 2 && rubyCount > 2) {
+              penalty += i === 0 ? 2 : 1;
+            }
+          }
+          return [penalty, split];
+        }
+        return [
+          getSplit([...split, -1]),
+          getSplit([...split, 0]),
+          getSplit([...split, 1]),
+        ].sort((a, b) => a[0] - b[0])[0];
+      };
+      const [_, split] = getSplit([]);
+
+      middleRuby.ruby.forEach((ruby, index) => {
+        const rubyText =
+          (index > 0 && split[index - 1] === -1
+            ? middleRuby.ruby[index - 1].slice(-1)
+            : "") +
+          ruby.slice(
+            index > 0 ? Math.max(split[index - 1], 0) : 0,
+            ruby.length + (index < split.length ? Math.min(split[index], 0) : 0)
+          ) +
+          (index < split.length && split[index] === 1
+            ? middleRuby.ruby[index + 1].slice(0, 1)
+            : "");
+
+        const newMiddleRuby: MiddleRubyInfo = {
+          type: "ruby",
+          ruby: rubyText,
+          base: middleRuby.base[index],
+          starts: middleRuby.starts,
+          charIndex: middleRuby.charIndex + index,
+          outlineIndex: middleRuby.outlineIndex + index,
+        };
+        applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
+        let leftCount = rubyText.length;
+        if (index === 0 && leftCount > 2 && maxRubyCounts[0] > 2) {
+          newMiddleRuby.alignment = "shita";
+          leftCount--;
+        }
+        if (
+          index === middleRuby.ruby.length - 1 &&
+          leftCount > 2 &&
+          maxRubyCounts[index] > 2
         ) {
-          const isNotLast = i < middleRuby.ruby.length - 1;
-          const rubyPerBaseChar = middleRuby.ruby[i];
-          let leftRuby = advances
-            ? putBeforeRuby + rubyPerBaseChar
-            : rubyPerBaseChar + putBeforeRuby;
-          let leftRatio = rubyRatio * leftRuby.length;
-          let alignment: alignment | null = null;
-          akis.push(0);
-
-          // mono ruby
-          const monoRubyRatio = Math.min(leftBaseSpaces[i], leftRatio);
-          leftBaseSpaces[i] -= monoRubyRatio;
-          leftRatio -= monoRubyRatio;
-
-          // unable to fit within the base character
-          // overhang the single after character in the compound word (when moving forward)
-          if (
-            0 < leftRatio &&
-            ((advances && isNotLast) || (!advances && 0 < i)) &&
-            rubyRatio <= leftBaseSpaces[i + advance]
-          ) {
-            leftRatio -= rubyRatio;
-          }
-          // overhang the single before character in the compound word (when moving forward)
-          if (
-            0 < leftRatio &&
-            ((advances && 0 < i) || (!advances && isNotLast)) &&
-            rubyRatio <= leftBaseSpaces[i - advance]
-          ) {
-            leftBaseSpaces[i - advance] -= rubyRatio;
-            leftRatio -= rubyRatio;
-            const lastMiddleRuby = tempMiddleRubys[tempMiddleRubys.length - 1];
-            lastMiddleRuby.ruby = advances
-              ? lastMiddleRuby.ruby + rubyPerBaseChar[0]
-              : rubyPerBaseChar[rubyPerBaseChar.length - 1] +
-                lastMiddleRuby.ruby;
-            leftRuby = advances ? leftRuby.slice(1) : leftRuby.slice(0, -1);
-          }
-          if (0 < leftRatio) {
-            // overhang the single after character outside an the compound word
-            if (advances && i === middleRuby.ruby.length - 1) {
-              leftRatio -=
-                getOverhangingRubyCount(middleRuby.afterChar) * rubyRatio;
-              overflows = true;
-              alignment = "kata";
-            }
-            // overhang the single after character outside an the compound word
-            else if (!advances && i === 0) {
-              leftRatio -=
-                getOverhangingRubyCount(middleRuby.beforeChar) * rubyRatio;
-              overflows = true;
-              alignment = "shita";
-            }
-          }
-          // insert spaces between the front and back of the compound word
-          if (0 < leftRatio) {
-            akis[i] = leftRatio;
-            alignment = "naka";
-          }
-
-          const rubyText = advances ? leftRuby.slice(0, 2) : leftRuby.slice(-2);
-          const middleRubyInfo: MiddleRubyInfo = {
-            type: "ruby",
-            ruby: overflows ? leftRuby : rubyText,
-            base: middleRuby.base[i],
-            starts: middleRuby.starts,
-            charIndex: middleRuby.charIndex + i,
-            outlineIndex: middleRuby.outlineIndex + i,
-          };
-          applyAttributesToMiddleRubyInfo(middleRubyInfo, middleRuby);
-          middleRubyInfo.alignment = alignment ?? middleRubyInfo.alignment;
-          middleRubyInfo.narrow = false;
-          tempMiddleRubys.push(middleRubyInfo as MiddleRubyInfo);
-          putBeforeRuby = advances ? leftRuby.slice(2) : leftRuby.slice(0, -2);
+          newMiddleRuby.alignment = "kata";
+          leftCount--;
         }
-        return [tempMiddleRubys, akis];
-      };
-
-      const applyAkis = (akis: number[]) => {
-        for (let i = 0; i < akis.length; i++) {
+        if (leftCount > 2) {
           const charAttributes =
-            characters[middleRuby.charIndex + i].characterAttributes;
-          charAttributes.akiLeft = akis[i];
-          charAttributes.akiRight = akis[i];
+            characters[middleRuby.charIndex + index].characterAttributes;
+          charAttributes.akiLeft = (leftCount - 2) / 4;
+          charAttributes.akiRight = (leftCount - 2) / 4;
+          newMiddleRuby.alignment = "naka";
         }
-      };
-      const sum = (array: number[]) =>
-        array.reduce((previous, value) => previous + value);
-      const processedList: [MiddleRubyInfo[], number[], number][] = [
-        [...process(true, false), 0],
-        //[...process(false, false), 1],
-        //[...process(true, true), 2],
-        //[...process(false, true), 3],
-      ];
-      const processed = processedList.sort(([_, x, xi], [__, y, yi]) =>
-        sum(x) - sum(y) === 0 ? xi - yi : sum(x) - sum(y)
-      )[0];
-      resultMiddleRubys.push(...processed[0]);
-      applyAkis(processed[1]);
+        newMiddleRuby.narrow = false;
+        resultMiddleRubys.push(newMiddleRuby);
+      });
     } else {
       resultMiddleRubys.push(middleRuby);
     }
@@ -537,7 +496,7 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
       ) {
         rubyAdjustment += (baseLength - rubyLength) / 2;
       } else if (ruby.alignment === "jis") {
-        rubyAdjustment += ((baseLength - rubyLength) / ruby.ruby.length) * 2;
+        rubyAdjustment += (baseLength - rubyLength) / (ruby.ruby.length * 2);
       }
     }
 

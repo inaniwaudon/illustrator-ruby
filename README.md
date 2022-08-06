@@ -2,17 +2,17 @@
 
 Adobe Illustrator 上でルビ（振りがな）を振るためのスクリプトです。
 
-Illustrator は標準でルビ機能に対応していませんが、本スクリプトを使用することで、テキストベースの指定によって一括でルビを振ることが可能となります。
+Illustrator は標準でルビ機能に対応していませんが、本スクリプトを用いることでルビのサイズや揃え位置、進入の有無、熟語ルビといった高度な指定を交えながら、ルビ処理を一括で行うことができます。
 
 **illustrator-ruby** - a script to ruby function for Adobe Illustrator.
-This script implements writing Japanese ruby characters, which Illustrator does not support as standard, automatically by text-based specifying.
+This script implements writing Japanese ruby characters, which Illustrator does not support as standard, automatically by text-based specifying with advanced specifications such as ruby size, alignment, penetration, and jukugo-ruby.
 
 [解説記事](https://) - スクリプトの使用方法や、ルビの基本に関して解説しています。
 
 [サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
 
-## 主な仕様
-- モノルビ・熟語ルビ・グループルビに対応しています。
+## 主な特徴
+- モノルビ・熟語ルビ（[JLReq](https://www.w3.org/TR/jlreq/) に準拠）・グループルビに対応しています。
 - ポイント文字、エリア内文字、パス上文字に対して、縦組・横組いずれの場合もルビを振ることができます。
 - パス上文字の場合、ルビは水平方向（縦組の場合は垂直方向）に配置されます。パスに沿ってルビが回転することはありません。
 - スレッドテキストには対応していません。
