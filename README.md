@@ -4,8 +4,8 @@ Adobe Illustrator 上でルビ（振りがな）を振るためのスクリプ�
 
 Illustrator は標準でルビ機能に対応していませんが、本スクリプトを用いることでルビのサイズや揃え位置、進入の有無、熟語ルビといった高度な指定を交えながら、ルビ処理を一括で行うことができます。
 
-**illustrator-ruby** - a script to ruby function for Adobe Illustrator.
-This script implements writing Japanese ruby characters, which Illustrator does not support as standard, automatically by text-based specifying with advanced specifications such as ruby size, alignment, penetration, and jukugo-ruby.
+**illustrator-ruby** - an Adobe Illustrator script for ruby function.
+This script implements writing Japanese ruby characters automatically, which Illustrator does not support as standard, with advanced specifications such as ruby size, alignment, penetration, and jukugo-ruby.
 
 ![Illustratorにおけるスクリプトの実行画面。漢字に熟語ルビが振られている。](./thumbnail.png)
 

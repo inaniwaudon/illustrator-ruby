@@ -2,13 +2,14 @@
 ## Development
 TypeScript で記述され、Webpack + ts-loader を用いて ES3 相当のスクリプトに変更しています[^es3]。  
 
-Babel が出力するソースコードを Illustrator のインタプリタが解釈できないため、必要に応じて Polyfill を `./src/polyfill.ts` に手動で記述しています。
-
 ```bash
 yarn  # Install dependencies
 yarn dev # Develop
 yarn build  # Build
 ```
+
+- Babel が出力するソースコードを Illustrator のインタプリタが解釈できないため、必要に応じて Polyfill を `./src/polyfill.ts` に手動で記述しています。
+- 三項演算子を入れ子で使用すると、適切に処理されない場合があります。
 
 ## References
 - [Adobe Illustrator 2022 Scripting Reference: JavaScript](https://developer.adobe.com/console/servicesandapis)

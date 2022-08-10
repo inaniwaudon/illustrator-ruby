@@ -229,6 +229,7 @@ var tokenizeText = function (baseText) {
                 continue;
             }
             // `ruby1|ruby2` represents upper and lower rubys.
+            // if j == 1, it is a upper ruby.
             for (var j = 1; j < Math.max(splited.length, 2); j++) {
                 // `ruby1/ruby2` is separated into mono rubys.
                 var splitedMono = splited[j].split("/");
@@ -252,13 +253,25 @@ var tokenizeText = function (baseText) {
                 }
                 else {
                     for (var k = 0; k < splitedMono.length; k++) {
+                        var _a = ["", ""], beforeChar = _a[0], afterChar = _a[1];
+                        if (i > 0) {
+                            beforeChar = k === 0 ? baseText[i - 1] : splited[0][k - 1];
+                        }
+                        if (i + toIndex < baseText.length - 1) {
+                            afterChar =
+                                k == splitedMono.length - 1
+                                    ? baseText[i + toIndex + 1]
+                                    : splited[0][k + 1];
+                        }
                         tokens.push({
                             type: "ruby",
                             ruby: splitedMono[k],
                             base: splitedMono.length === 1 ? splited[0] : splited[0][k],
                             starts: j === 1,
                             charIndex: i - finalBaseDifference + k,
-                            outlineIndex: i - finalBaseDifference - spaceDifference + k
+                            outlineIndex: i - finalBaseDifference - spaceDifference + k,
+                            beforeChar: beforeChar,
+                            afterChar: afterChar
                         });
                     }
                 }
@@ -292,12 +305,12 @@ exports.tokenizeText = tokenizeText;
 var applyAttributesToMiddleRubyInfo = function (info, attribute) {
     for (var key in attribute) {
         if ([
-            "rubySize",
-            "offset",
-            "font",
             "alignment",
+            "font",
+            "offset",
+            "overflow",
+            "rubySize",
             "sutegana",
-            "narrow",
         ].includes(key)) {
             var value = attribute[key];
             if (value !== null) {
@@ -345,9 +358,10 @@ var applyAttributesToRubyList = function (tokens) {
                     defined.sutegana =
                         token.value === "base" ? null : token.value === "true";
                     break;
-                case "narrow":
-                    defined.narrow =
-                        token.value === "base" ? null : token.value === "true";
+                case "overflow":
+                    defined.overflow = ["shinyu", "narrow", "false"].includes(token.value)
+                        ? token.value
+                        : "false";
                     break;
                 case "font":
                     defined.font = token.value === "base" ? null : token.value;
@@ -410,12 +424,16 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     base: middleRuby.base[index],
                     starts: middleRuby.starts,
                     charIndex: middleRuby.charIndex + index,
-                    outlineIndex: middleRuby.outlineIndex + index
+                    outlineIndex: middleRuby.outlineIndex + index,
+                    beforeChar: index === 0 ? middleRuby.beforeChar : middleRuby.base[index - 1],
+                    afterChar: index === middleRuby.ruby.length - 1
+                        ? middleRuby.afterChar
+                        : middleRuby.base[index + 1]
                 };
                 applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
                 var leftCount = rubyText.length;
                 if (middleRuby.ruby.length === 1) {
-                    // 中にするとは限らない
+                    // TODO: 中にするとは限らない
                     newMiddleRuby.alignment = "naka";
                     leftCount -= maxRubyCounts_1[0] - 2;
                 }
@@ -437,10 +455,11 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     charAttributes.akiRight = (leftCount - 2) / 4;
                     newMiddleRuby.alignment = "naka";
                 }
-                newMiddleRuby.narrow = false;
+                newMiddleRuby.overflow = "false";
                 resultMiddleRubys.push(newMiddleRuby);
             });
         }
+        // mono, group-ruby
         else {
             resultMiddleRubys.push(middleRuby);
         }
@@ -451,58 +470,89 @@ var convertJukugoRubys = function (middleRubys, characters) {
     }
     return resultMiddleRubys;
 };
-var createRubyInfos = function (middleRubys, finishTextFrame, isVertical) {
+var createRubyInfos = function (middleRubyInfos, characters) {
     var _a, _b, _c;
-    var rubyList = [];
-    for (var _i = 0, middleRubys_2 = middleRubys; _i < middleRubys_2.length; _i++) {
-        var middleRuby = middleRubys_2[_i];
-        // get outlined paths
-        var textOutline = finishTextFrame.duplicate().createOutline();
-        var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
-            (middleRuby.outlineIndex + middleRuby.base.length), textOutline.compoundPathItems.length - middleRuby.outlineIndex);
+    var rubyInfos = [];
+    for (var _i = 0, middleRubyInfos_1 = middleRubyInfos; _i < middleRubyInfos_1.length; _i++) {
+        var middleRubyInfo = middleRubyInfos_1[_i];
         // add an information of ruby
-        var charAttributes = finishTextFrame.characters[middleRuby.charIndex].characterAttributes;
+        var charAttributes = characters[middleRubyInfo.charIndex].characterAttributes;
         var ruby = {
-            ruby: middleRuby.ruby,
-            base: middleRuby.base,
-            starts: middleRuby.starts,
-            alignment: (_a = middleRuby.alignment) !== null && _a !== void 0 ? _a : ruby_1.defaultAlignment,
+            ruby: middleRubyInfo.ruby,
+            base: middleRubyInfo.base,
+            starts: middleRubyInfo.starts,
+            alignment: (_a = middleRubyInfo.alignment) !== null && _a !== void 0 ? _a : ruby_1.defaultAlignment,
             font: charAttributes.textFont,
-            x: isVertical
-                ? basePaths.reduce(function (previous, path) { return previous + path.left + path.width / 2; }, 0) / basePaths.length
-                : basePaths[basePaths.length - 1].left,
-            y: isVertical
-                ? basePaths[basePaths.length - 1].top
-                : basePaths.reduce(function (previous, path) { return previous + path.top - path.height / 2; }, 0) / basePaths.length,
+            x: 0,
+            y: 0,
             baseWidth: 0,
             baseHeight: 0,
             offset: 0,
-            sutegana: (_b = middleRuby.sutegana) !== null && _b !== void 0 ? _b : ruby_1.defaultSutegana,
-            narrow: (_c = middleRuby.narrow) !== null && _c !== void 0 ? _c : ruby_1.defaultNarrow,
+            sutegana: (_b = middleRubyInfo.sutegana) !== null && _b !== void 0 ? _b : ruby_1.defaultSutegana,
+            overflow: (_c = middleRubyInfo.overflow) !== null && _c !== void 0 ? _c : ruby_1.defaultOverflow,
             size: {
                 base: charAttributes.size,
                 ruby: charAttributes.size * ruby_1.defaultRubySizeRatio
             }
         };
-        if (middleRuby.font) {
+        if (middleRubyInfo.font) {
             try {
-                ruby.font = app.textFonts.getByName(middleRuby.font);
+                ruby.font = app.textFonts.getByName(middleRubyInfo.font);
             }
             catch (e) {
-                ruby.font = app.textFonts.getFontByName(middleRuby.font);
+                ruby.font = app.textFonts.getFontByName(middleRubyInfo.font);
             }
         }
-        ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
-        ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
-        if (middleRuby.rubySize !== undefined) {
-            ruby.size.ruby = convertUnit(middleRuby.rubySize, ruby.size.base, ruby_1.defaultRubySizeRatio);
+        if (middleRubyInfo.rubySize !== undefined) {
+            ruby.size.ruby = convertUnit(middleRubyInfo.rubySize, ruby.size.base, ruby_1.defaultRubySizeRatio);
         }
-        if (middleRuby.offset !== undefined) {
-            ruby.offset = convertUnit(middleRuby.offset, ruby.size.base, 0);
+        if (middleRubyInfo.offset !== undefined) {
+            ruby.offset = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
         }
-        rubyList.push(ruby);
-        textOutline.remove();
+        rubyInfos.push(ruby);
     }
+    return rubyInfos;
+};
+var adjustAki = function (rubyInfos, middleRubyInfos, characters) {
+    rubyInfos.forEach(function (rubyInfo, index) {
+        var baseWidth = rubyInfo.size.base * rubyInfo.base.length;
+        var rubyWidth = rubyInfo.size.ruby * rubyInfo.ruby.length;
+        if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
+            var middleRubyInfo = middleRubyInfos[index];
+            var a = rubyWidth -
+                baseWidth -
+                ((0, character_1.getOverhangingRubyCount)(middleRubyInfo.beforeChar) +
+                    (0, character_1.getOverhangingRubyCount)(middleRubyInfo.afterChar)) *
+                    rubyInfo.size.ruby;
+            // a;
+            // TODO: 進入・突出処理
+            // TODO: アキを調整する
+            /*const charAttributes =
+              characters[middleRubyInfos[index].charIndex + k].characterAttributes;
+            charAttributes.akiLeft = (leftCount - 2) / 4;
+            charAttributes.akiRight = (leftCount - 2) / 4;*/
+        }
+    });
+};
+var determinePositions = function (rubyInfos, middleRubyInfos, finishTextFrame, isVertical) {
+    var rubyList = [];
+    rubyInfos.forEach(function (rubyInfo, index) {
+        // get outlined paths
+        var textOutline = finishTextFrame.duplicate().createOutline();
+        var middleRuby = middleRubyInfos[index];
+        var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
+            (middleRuby.outlineIndex + rubyInfo.base.length), textOutline.compoundPathItems.length - middleRuby.outlineIndex);
+        // add an information of ruby
+        rubyInfo.x = isVertical
+            ? basePaths.reduce(function (previous, path) { return previous + path.left + path.width / 2; }, 0) / basePaths.length
+            : basePaths[basePaths.length - 1].left;
+        rubyInfo.y = isVertical
+            ? basePaths[basePaths.length - 1].top
+            : basePaths.reduce(function (previous, path) { return previous + path.top - path.height / 2; }, 0) / basePaths.length;
+        rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
+        rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
+        textOutline.remove();
+    });
     return rubyList;
 };
 var addRubys = function (rubyList, isVertical) {
@@ -534,7 +584,7 @@ var addRubys = function (rubyList, isVertical) {
                 ((baseLength - rubyLength) / ruby.ruby.length / ruby.size.ruby) * 1000;
         }
         // set a position
-        var isNarrow = ruby.narrow && rubyLength > baseLength;
+        var isNarrow = ruby.overflow === "narrow" && rubyLength > baseLength;
         var rubyAdjustment = (measuredBaseLength - baseLength) / 2;
         if (!isNarrow) {
             if (ruby.alignment === "shita") {
@@ -579,10 +629,12 @@ var main = function () {
     var isVertical = selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
     var tokens = (0, exports.tokenizeText)(selectedTextFrame.base.contents);
     var mixedMiddleRubys = (0, exports.applyAttributesToRubyList)(tokens);
-    var middleRubys = convertJukugoRubys(mixedMiddleRubys, selectedTextFrame.finish.characters);
-    var rubyList = createRubyInfos(middleRubys, selectedTextFrame.finish, isVertical);
-    addRubys(rubyList, isVertical);
-    alert("".concat(rubyList.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
+    var middleRubyInfos = convertJukugoRubys(mixedMiddleRubys, selectedTextFrame.finish.characters);
+    var rubyInfos = createRubyInfos(middleRubyInfos, selectedTextFrame.finish.characters);
+    adjustAki(rubyInfos, middleRubyInfos, selectedTextFrame.finish.characters);
+    determinePositions(rubyInfos, middleRubyInfos, selectedTextFrame.finish, isVertical);
+    addRubys(rubyInfos, isVertical);
+    alert("".concat(rubyInfos.length, " \u500B\u306E\u30EB\u30D3\u3092\u4ED8\u4E0E\u3057\u307E\u3057\u305F"));
 };
 exports.main = main;
 
@@ -678,7 +730,7 @@ String.prototype.includes = function (value) {
 
 
 exports.__esModule = true;
-exports.defaultRubySizeRatio = exports.defaultNarrow = exports.defaultSutegana = exports.defaultAlignment = exports.isAlignment = exports.alignment = void 0;
+exports.defaultRubySizeRatio = exports.defaultOverflow = exports.defaultSutegana = exports.defaultAlignment = exports.isAlignment = exports.alignment = void 0;
 // alignment
 exports.alignment = {
     kata: "kata",
@@ -693,7 +745,7 @@ exports.isAlignment = isAlignment;
 // default value
 exports.defaultAlignment = "jis";
 exports.defaultSutegana = true;
-exports.defaultNarrow = false;
+exports.defaultOverflow = "false";
 exports.defaultRubySizeRatio = 0.5;
 
 

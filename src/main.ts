@@ -5,7 +5,7 @@ import {
 } from "./character";
 import {
   defaultAlignment,
-  defaultNarrow,
+  defaultOverflow,
   defaultRubySizeRatio,
   defaultSutegana,
   isAlignment,
@@ -14,6 +14,7 @@ import {
   RubyInfo,
   Token,
   MiddleJukugoRubyInfo,
+  overflow,
 } from "./ruby";
 
 const convertUnit = (size: string, baseSize: number, ratio: number) => {
@@ -130,6 +131,7 @@ export const tokenizeText = (baseText: string) => {
       }
 
       // `ruby1|ruby2` represents upper and lower rubys.
+      // if j == 1, it is a upper ruby.
       for (let j = 1; j < Math.max(splited.length, 2); j++) {
         // `ruby1/ruby2` is separated into mono rubys.
         const splitedMono = splited[j].split("/");
@@ -139,6 +141,7 @@ export const tokenizeText = (baseText: string) => {
         ) {
           continue;
         }
+
         if (startsJukugoRuby) {
           tokens.push({
             type: "jukugo-ruby",
@@ -155,6 +158,16 @@ export const tokenizeText = (baseText: string) => {
           });
         } else {
           for (let k = 0; k < splitedMono.length; k++) {
+            let [beforeChar, afterChar] = ["", ""];
+            if (i > 0) {
+              beforeChar = k === 0 ? baseText[i - 1] : splited[0][k - 1];
+            }
+            if (i + toIndex < baseText.length - 1) {
+              afterChar =
+                k == splitedMono.length - 1
+                  ? baseText[i + toIndex + 1]
+                  : splited[0][k + 1];
+            }
             tokens.push({
               type: "ruby",
               ruby: splitedMono[k],
@@ -162,6 +175,8 @@ export const tokenizeText = (baseText: string) => {
               starts: j === 1,
               charIndex: i - finalBaseDifference + k,
               outlineIndex: i - finalBaseDifference - spaceDifference + k,
+              beforeChar,
+              afterChar,
             });
           }
         }
@@ -202,12 +217,12 @@ const applyAttributesToMiddleRubyInfo = (
   for (const key in attribute) {
     if (
       [
-        "rubySize",
-        "offset",
-        "font",
         "alignment",
+        "font",
+        "offset",
+        "overflow",
+        "rubySize",
         "sutegana",
-        "narrow",
       ].includes(key)
     ) {
       const value = attribute[key as keyof DefinedAttribute];
@@ -257,9 +272,10 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
           defined.sutegana =
             token.value === "base" ? null : token.value === "true";
           break;
-        case "narrow":
-          defined.narrow =
-            token.value === "base" ? null : token.value === "true";
+        case "overflow":
+          defined.overflow = ["shinyu", "narrow", "false"].includes(token.value)
+            ? (token.value as overflow)
+            : "false";
           break;
         case "font":
           defined.font = token.value === "base" ? null : token.value;
@@ -342,11 +358,17 @@ const convertJukugoRubys = (
           starts: middleRuby.starts,
           charIndex: middleRuby.charIndex + index,
           outlineIndex: middleRuby.outlineIndex + index,
+          beforeChar:
+            index === 0 ? middleRuby.beforeChar : middleRuby.base[index - 1],
+          afterChar:
+            index === middleRuby.ruby.length - 1
+              ? middleRuby.afterChar
+              : middleRuby.base[index + 1],
         };
         applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
         let leftCount = rubyText.length;
         if (middleRuby.ruby.length === 1) {
-          // 中にするとは限らない
+          // TODO: 中にするとは限らない
           newMiddleRuby.alignment = "naka";
           leftCount -= maxRubyCounts[0] - 2;
         } else {
@@ -370,10 +392,12 @@ const convertJukugoRubys = (
           charAttributes.akiRight = (leftCount - 2) / 4;
           newMiddleRuby.alignment = "naka";
         }
-        newMiddleRuby.narrow = false;
+        newMiddleRuby.overflow = "false";
         resultMiddleRubys.push(newMiddleRuby);
       });
-    } else {
+    }
+    // mono, group-ruby
+    else {
       resultMiddleRubys.push(middleRuby);
     }
   }
@@ -381,77 +405,121 @@ const convertJukugoRubys = (
 };
 
 const createRubyInfos = (
-  middleRubys: MiddleRubyInfo[],
-  finishTextFrame: any,
-  isVertical: boolean
+  middleRubyInfos: MiddleRubyInfo[],
+  characters: Characters
 ) => {
-  const rubyList: RubyInfo[] = [];
+  const rubyInfos: RubyInfo[] = [];
 
-  for (const middleRuby of middleRubys) {
-    // get outlined paths
-    const textOutline = (
-      finishTextFrame.duplicate() as TextFrame
-    ).createOutline();
-    const basePaths = [...textOutline.compoundPathItems].slice(
-      textOutline.compoundPathItems.length -
-        (middleRuby.outlineIndex + middleRuby.base.length),
-      textOutline.compoundPathItems.length - middleRuby.outlineIndex
-    );
-
+  for (const middleRubyInfo of middleRubyInfos) {
     // add an information of ruby
     const charAttributes =
-      finishTextFrame.characters[middleRuby.charIndex].characterAttributes;
+      characters[middleRubyInfo.charIndex].characterAttributes;
     const ruby: RubyInfo = {
-      ruby: middleRuby.ruby,
-      base: middleRuby.base,
-      starts: middleRuby.starts,
-      alignment: middleRuby.alignment ?? defaultAlignment,
+      ruby: middleRubyInfo.ruby,
+      base: middleRubyInfo.base,
+      starts: middleRubyInfo.starts,
+      alignment: middleRubyInfo.alignment ?? defaultAlignment,
       font: charAttributes.textFont,
-      x: isVertical
-        ? basePaths.reduce(
-            (previous, path) => previous + path.left + path.width / 2,
-            0
-          ) / basePaths.length
-        : basePaths[basePaths.length - 1].left,
-      y: isVertical
-        ? basePaths[basePaths.length - 1].top
-        : basePaths.reduce(
-            (previous, path) => previous + path.top - path.height / 2,
-            0
-          ) / basePaths.length,
+      x: 0,
+      y: 0,
       baseWidth: 0,
       baseHeight: 0,
       offset: 0,
-      sutegana: middleRuby.sutegana ?? defaultSutegana,
-      narrow: middleRuby.narrow ?? defaultNarrow,
+      sutegana: middleRubyInfo.sutegana ?? defaultSutegana,
+      overflow: middleRubyInfo.overflow ?? defaultOverflow,
       size: {
         base: charAttributes.size,
         ruby: charAttributes.size * defaultRubySizeRatio,
       },
     };
 
-    if (middleRuby.font) {
+    if (middleRubyInfo.font) {
       try {
-        ruby.font = app.textFonts.getByName(middleRuby.font);
+        ruby.font = app.textFonts.getByName(middleRubyInfo.font);
       } catch (e) {
-        ruby.font = app.textFonts.getFontByName(middleRuby.font);
+        ruby.font = app.textFonts.getFontByName(middleRubyInfo.font);
       }
     }
-    ruby.baseWidth = basePaths[0].left + basePaths[0].width - ruby.x;
-    ruby.baseHeight = ruby.y - basePaths[0].top + basePaths[0].height;
-    if (middleRuby.rubySize !== undefined) {
+    if (middleRubyInfo.rubySize !== undefined) {
       ruby.size.ruby = convertUnit(
-        middleRuby.rubySize,
+        middleRubyInfo.rubySize,
         ruby.size.base,
         defaultRubySizeRatio
       );
     }
-    if (middleRuby.offset !== undefined) {
-      ruby.offset = convertUnit(middleRuby.offset, ruby.size.base, 0);
+    if (middleRubyInfo.offset !== undefined) {
+      ruby.offset = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
     }
-    rubyList.push(ruby);
-    textOutline.remove();
+    rubyInfos.push(ruby);
   }
+  return rubyInfos;
+};
+
+const adjustAki = (
+  rubyInfos: RubyInfo[],
+  middleRubyInfos: MiddleRubyInfo[],
+  characters: Characters
+) => {
+  rubyInfos.forEach((rubyInfo, index) => {
+    const baseWidth = rubyInfo.size.base * rubyInfo.base.length;
+    const rubyWidth = rubyInfo.size.ruby * rubyInfo.ruby.length;
+
+    if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
+      const middleRubyInfo = middleRubyInfos[index];
+      const a =
+        rubyWidth -
+        baseWidth -
+        (getOverhangingRubyCount(middleRubyInfo.beforeChar) +
+          getOverhangingRubyCount(middleRubyInfo.afterChar)) *
+          rubyInfo.size.ruby;
+      // a;
+      // TODO: 進入・突出処理
+      // TODO: アキを調整する
+      /*const charAttributes =
+        characters[middleRubyInfos[index].charIndex + k].characterAttributes;
+      charAttributes.akiLeft = (leftCount - 2) / 4;
+      charAttributes.akiRight = (leftCount - 2) / 4;*/
+    }
+  });
+};
+
+const determinePositions = (
+  rubyInfos: RubyInfo[],
+  middleRubyInfos: MiddleRubyInfo[],
+  finishTextFrame: any,
+  isVertical: boolean
+) => {
+  const rubyList: RubyInfo[] = [];
+
+  rubyInfos.forEach((rubyInfo, index) => {
+    // get outlined paths
+    const textOutline = (
+      finishTextFrame.duplicate() as TextFrame
+    ).createOutline();
+    const middleRuby = middleRubyInfos[index];
+    const basePaths = [...textOutline.compoundPathItems].slice(
+      textOutline.compoundPathItems.length -
+        (middleRuby.outlineIndex + rubyInfo.base.length),
+      textOutline.compoundPathItems.length - middleRuby.outlineIndex
+    );
+
+    // add an information of ruby
+    rubyInfo.x = isVertical
+      ? basePaths.reduce(
+          (previous, path) => previous + path.left + path.width / 2,
+          0
+        ) / basePaths.length
+      : basePaths[basePaths.length - 1].left;
+    rubyInfo.y = isVertical
+      ? basePaths[basePaths.length - 1].top
+      : basePaths.reduce(
+          (previous, path) => previous + path.top - path.height / 2,
+          0
+        ) / basePaths.length;
+    rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
+    rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
+    textOutline.remove();
+  });
   return rubyList;
 };
 
@@ -491,7 +559,7 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
     }
 
     // set a position
-    const isNarrow = ruby.narrow && rubyLength > baseLength;
+    const isNarrow = ruby.overflow === "narrow" && rubyLength > baseLength;
     let rubyAdjustment = (measuredBaseLength - baseLength) / 2;
     if (!isNarrow) {
       if (ruby.alignment === "shita") {
@@ -541,18 +609,23 @@ export const main = () => {
 
   const isVertical =
     selectedTextFrame.finish.orientation === TextOrientation.VERTICAL;
-
   const tokens = tokenizeText(selectedTextFrame.base.contents);
   const mixedMiddleRubys = applyAttributesToRubyList(tokens);
-  const middleRubys = convertJukugoRubys(
+  const middleRubyInfos = convertJukugoRubys(
     mixedMiddleRubys,
     selectedTextFrame.finish.characters
   );
-  const rubyList = createRubyInfos(
-    middleRubys,
+  const rubyInfos = createRubyInfos(
+    middleRubyInfos,
+    selectedTextFrame.finish.characters
+  );
+  adjustAki(rubyInfos, middleRubyInfos, selectedTextFrame.finish.characters);
+  determinePositions(
+    rubyInfos,
+    middleRubyInfos,
     selectedTextFrame.finish,
     isVertical
   );
-  addRubys(rubyList, isVertical);
-  alert(`${rubyList.length} 個のルビを付与しました`);
+  addRubys(rubyInfos, isVertical);
+  alert(`${rubyInfos.length} 個のルビを付与しました`);
 };

@@ -7,7 +7,7 @@ const sampleBase =
 const monoBase = "[海浜幕張|かい/ひん/まく/はり|まくはりほんごう]";
 const jukugoBase = "<紫式部|むらさき/しき/ぶ>を<読破|ど/く/は>";
 
-const sampleTokens: Token[] = [
+/*const sampleTokens: Token[] = [
   { type: "attribute", key: "narrow", value: "false" },
   { type: "attribute", key: "align", value: "naka" },
   {

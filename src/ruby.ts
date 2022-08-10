@@ -15,7 +15,7 @@ export interface RubyInfo {
   baseHeight: number;
   offset: number;
   sutegana: boolean;
-  narrow: boolean;
+  overflow: overflow;
   size: {
     ruby: number;
     base: number;
@@ -28,7 +28,7 @@ export interface MiddleCommonRubyInfo {
   font?: string;
   alignment?: alignment;
   sutegana?: boolean;
-  narrow?: boolean;
+  overflow?: overflow;
 }
 
 export type MiddleRubyInfo = RubyToken & MiddleCommonRubyInfo;
@@ -40,7 +40,7 @@ export interface DefinedAttribute {
   font?: string | null;
   alignment?: alignment | null;
   sutegana?: boolean | null;
-  narrow?: boolean | null;
+  overflow?: overflow | null;
 }
 
 interface CommonRubyToken {
@@ -48,6 +48,8 @@ interface CommonRubyToken {
   starts: boolean;
   charIndex: number;
   outlineIndex: number;
+  beforeChar: string;
+  afterChar: string;
 }
 
 export type RubyToken = {
@@ -58,8 +60,6 @@ export type RubyToken = {
 export type JukugoRubyToken = {
   type: "jukugo-ruby";
   ruby: string[];
-  beforeChar: string;
-  afterChar: string;
 } & CommonRubyToken;
 
 export type Token =
@@ -78,8 +78,10 @@ export type alignment = typeof alignment[keyof typeof alignment];
 export const isAlignment = (value: string): value is alignment =>
   value in alignment;
 
+export type overflow = "shinyu" | "narrow" | "false";
+
 // default value
 export const defaultAlignment = "jis";
 export const defaultSutegana = true;
-export const defaultNarrow = false;
+export const defaultOverflow: overflow = "false";
 export const defaultRubySizeRatio = 0.5;
