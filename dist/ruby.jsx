@@ -486,7 +486,7 @@ var createRubyInfos = function (middleRubyInfos, characters) {
             y: 0,
             baseWidth: 0,
             baseHeight: 0,
-            offset: 0,
+            offset: { x: 0, y: 0 },
             sutegana: (_b = middleRubyInfo.sutegana) !== null && _b !== void 0 ? _b : ruby_1.defaultSutegana,
             overflow: (_c = middleRubyInfo.overflow) !== null && _c !== void 0 ? _c : ruby_1.defaultOverflow,
             size: {
@@ -506,7 +506,7 @@ var createRubyInfos = function (middleRubyInfos, characters) {
             ruby.size.ruby = convertUnit(middleRubyInfo.rubySize, ruby.size.base, ruby_1.defaultRubySizeRatio);
         }
         if (middleRubyInfo.offset !== undefined) {
-            ruby.offset = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
+            ruby.offset.y = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
         }
         rubyInfos.push(ruby);
     }
@@ -518,25 +518,62 @@ var adjustAki = function (rubyInfos, middleRubyInfos, characters) {
         var rubyWidth = rubyInfo.size.ruby * rubyInfo.ruby.length;
         if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
             var middleRubyInfo = middleRubyInfos[index];
-            var overflowingLength = Math.max(rubyWidth -
+            var overhangingBefore = (0, character_1.getOverhangingRubyCount)(middleRubyInfo.beforeChar);
+            var overhangingAfter = (0, character_1.getOverhangingRubyCount)(middleRubyInfo.afterChar);
+            var overflowLength = (rubyWidth - baseWidth) / rubyInfo.size.ruby;
+            var akiLength = Math.max(rubyWidth -
                 baseWidth -
-                ((0, character_1.getOverhangingRubyCount)(middleRubyInfo.beforeChar) +
-                    (0, character_1.getOverhangingRubyCount)(middleRubyInfo.afterChar)) *
-                    rubyInfo.size.ruby, 0);
+                (overhangingBefore + overhangingAfter) * rubyInfo.size.ruby, 0) / rubyInfo.size.base;
             var firstChar = characters[middleRubyInfo.charIndex];
-            var lastChar = middleRubyInfo.charIndex + rubyInfo.base.length < characters.length
+            var nextChar = middleRubyInfo.charIndex + rubyInfo.base.length < characters.length
                 ? characters[middleRubyInfo.charIndex + rubyInfo.base.length]
                 : null;
-            if (rubyInfo.alignment === "naka") {
-                firstChar.kerning =
-                    ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
-                if (lastChar !== null) {
-                    lastChar.kerning =
-                        ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+            // naka, 1-2-1 (JIS)
+            var isNaka = rubyInfo.alignment === "naka";
+            var isJis = rubyInfo.alignment === "jis";
+            if (isNaka || isJis) {
+                if (overhangingBefore && !overhangingAfter) {
+                    rubyInfo.offset.x -= rubyInfo.size.ruby * 0.5;
+                }
+                if (!overhangingBefore && overhangingAfter) {
+                    rubyInfo.offset.x += rubyInfo.size.ruby * 0.5;
                 }
             }
-            /*if (rubyInfo.alignment === "jis") {
-            }*/
+            // naka
+            if (isNaka) {
+                firstChar.kerning = akiLength * 500;
+                if (nextChar) {
+                    nextChar.kerning = akiLength * 500;
+                }
+            }
+            // 1-2-1 (JIS)
+            if (rubyInfo.alignment === "jis") {
+                var aki = (akiLength * 1000) / (rubyInfo.base.length * 2);
+                firstChar.kerning = aki;
+                for (var i = 1; i < rubyInfo.base.length; i++) {
+                    characters[middleRubyInfo.charIndex + i].kerning = aki * 2;
+                }
+                if (nextChar) {
+                    nextChar.kerning = aki;
+                }
+            }
+            // kata
+            if (rubyInfo.alignment === "kata") {
+                if (!overhangingBefore && overhangingAfter) {
+                    rubyInfo.alignment = "shita";
+                    rubyInfo.offset.x += rubyInfo.size.ruby;
+                    firstChar.kerning = akiLength * 1000;
+                }
+                else {
+                    if (nextChar) {
+                        nextChar.kerning = akiLength * 1000;
+                    }
+                    if ((overhangingBefore && !overhangingAfter) ||
+                        (overhangingBefore && overhangingAfter && overflowLength > 1)) {
+                        rubyInfo.offset.x -= rubyInfo.size.ruby;
+                    }
+                }
+            }
         }
     });
 };
@@ -591,7 +628,7 @@ var addRubys = function (rubyList, isVertical) {
         }
         // set a position
         var isNarrow = ruby.overflow === "narrow" && rubyLength > baseLength;
-        var rubyAdjustment = (measuredBaseLength - baseLength) / 2;
+        var rubyAdjustment = (measuredBaseLength - baseLength) / 2 + ruby.offset.x;
         if (!isNarrow) {
             if (ruby.alignment === "shita") {
                 rubyAdjustment += baseLength - rubyLength;
@@ -606,8 +643,8 @@ var addRubys = function (rubyList, isVertical) {
         }
         var basePosition = (isVertical ? ruby.x : ruby.y) +
             (ruby.starts
-                ? ruby.size.base / 2 + ruby.offset
-                : -ruby.size.base / 2 - ruby.offset);
+                ? ruby.size.base / 2 + ruby.offset.y
+                : -ruby.size.base / 2 - ruby.offset.y);
         if (isVertical) {
             textFrame.top = ruby.y - rubyAdjustment;
             textFrame.left = basePosition - (ruby.starts ? 0 : ruby.size.ruby);

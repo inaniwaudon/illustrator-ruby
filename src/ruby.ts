@@ -13,7 +13,10 @@ export interface RubyInfo {
   y: number;
   baseWidth: number;
   baseHeight: number;
-  offset: number;
+  offset: {
+    x: number;
+    y: number;
+  };
   sutegana: boolean;
   overflow: overflow;
   size: {

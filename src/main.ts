@@ -423,7 +423,7 @@ const createRubyInfos = (
       y: 0,
       baseWidth: 0,
       baseHeight: 0,
-      offset: 0,
+      offset: { x: 0, y: 0 },
       sutegana: middleRubyInfo.sutegana ?? defaultSutegana,
       overflow: middleRubyInfo.overflow ?? defaultOverflow,
       size: {
@@ -447,7 +447,7 @@ const createRubyInfos = (
       );
     }
     if (middleRubyInfo.offset !== undefined) {
-      ruby.offset = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
+      ruby.offset.y = convertUnit(middleRubyInfo.offset, ruby.size.base, 0);
     }
     rubyInfos.push(ruby);
   }
@@ -465,30 +465,73 @@ const adjustAki = (
 
     if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
       const middleRubyInfo = middleRubyInfos[index];
-      const overflowingLength = Math.max(
-        rubyWidth -
-          baseWidth -
-          (getOverhangingRubyCount(middleRubyInfo.beforeChar) +
-            getOverhangingRubyCount(middleRubyInfo.afterChar)) *
-            rubyInfo.size.ruby,
-        0
+      const overhangingBefore = getOverhangingRubyCount(
+        middleRubyInfo.beforeChar
       );
-
+      const overhangingAfter = getOverhangingRubyCount(
+        middleRubyInfo.afterChar
+      );
+      const overflowLength = (rubyWidth - baseWidth) / rubyInfo.size.ruby;
+      const akiLength =
+        Math.max(
+          rubyWidth -
+            baseWidth -
+            (overhangingBefore + overhangingAfter) * rubyInfo.size.ruby,
+          0
+        ) / rubyInfo.size.base;
       const firstChar = characters[middleRubyInfo.charIndex];
-      const lastChar =
+      const nextChar =
         middleRubyInfo.charIndex + rubyInfo.base.length < characters.length
           ? characters[middleRubyInfo.charIndex + rubyInfo.base.length]
           : null;
-      if (rubyInfo.alignment === "naka") {
-        firstChar.kerning =
-          ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
-        if (lastChar !== null) {
-          lastChar.kerning =
-            ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+
+      // naka, 1-2-1 (JIS)
+      const isNaka = rubyInfo.alignment === "naka";
+      const isJis = rubyInfo.alignment === "jis";
+      if (isNaka || isJis) {
+        if (overhangingBefore && !overhangingAfter) {
+          rubyInfo.offset.x -= rubyInfo.size.ruby * 0.5;
+        }
+        if (!overhangingBefore && overhangingAfter) {
+          rubyInfo.offset.x += rubyInfo.size.ruby * 0.5;
         }
       }
-      /*if (rubyInfo.alignment === "jis") {
-      }*/
+      // naka
+      if (isNaka) {
+        firstChar.kerning = akiLength * 500;
+        if (nextChar) {
+          nextChar.kerning = akiLength * 500;
+        }
+      }
+      // 1-2-1 (JIS)
+      if (rubyInfo.alignment === "jis") {
+        const aki = (akiLength * 1000) / (rubyInfo.base.length * 2);
+        firstChar.kerning = aki;
+        for (let i = 1; i < rubyInfo.base.length; i++) {
+          characters[middleRubyInfo.charIndex + i].kerning = aki * 2;
+        }
+        if (nextChar) {
+          nextChar.kerning = aki;
+        }
+      }
+      // kata
+      if (rubyInfo.alignment === "kata") {
+        if (!overhangingBefore && overhangingAfter) {
+          rubyInfo.alignment = "shita";
+          rubyInfo.offset.x += rubyInfo.size.ruby;
+          firstChar.kerning = akiLength * 1000;
+        } else {
+          if (nextChar) {
+            nextChar.kerning = akiLength * 1000;
+          }
+          if (
+            (overhangingBefore && !overhangingAfter) ||
+            (overhangingBefore && overhangingAfter && overflowLength > 1)
+          ) {
+            rubyInfo.offset.x -= rubyInfo.size.ruby;
+          }
+        }
+      }
     }
   });
 };
@@ -570,7 +613,7 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
 
     // set a position
     const isNarrow = ruby.overflow === "narrow" && rubyLength > baseLength;
-    let rubyAdjustment = (measuredBaseLength - baseLength) / 2;
+    let rubyAdjustment = (measuredBaseLength - baseLength) / 2 + ruby.offset.x;
     if (!isNarrow) {
       if (ruby.alignment === "shita") {
         rubyAdjustment += baseLength - rubyLength;
@@ -587,8 +630,8 @@ const addRubys = (rubyList: RubyInfo[], isVertical: boolean) => {
     const basePosition =
       (isVertical ? ruby.x : ruby.y) +
       (ruby.starts
-        ? ruby.size.base / 2 + ruby.offset
-        : -ruby.size.base / 2 - ruby.offset);
+        ? ruby.size.base / 2 + ruby.offset.y
+        : -ruby.size.base / 2 - ruby.offset.y);
 
     if (isVertical) {
       textFrame.top = ruby.y - rubyAdjustment;
