@@ -333,12 +333,10 @@ var applyAttributesToRubyList = function (tokens) {
                 base: token.base,
                 starts: token.starts,
                 charIndex: token.charIndex,
-                outlineIndex: token.outlineIndex
+                outlineIndex: token.outlineIndex,
+                beforeChar: token.beforeChar,
+                afterChar: token.afterChar
             };
-            if (token.type === "jukugo-ruby" && ruby.type === "jukugo-ruby") {
-                ruby.beforeChar = token.beforeChar;
-                ruby.afterChar = token.afterChar;
-            }
             applyAttributesToMiddleRubyInfo(ruby, defined);
             rubyList.push(ruby);
         }
@@ -451,8 +449,9 @@ var convertJukugoRubys = function (middleRubys, characters) {
                 }
                 if (leftCount > 2) {
                     var charAttributes = characters[middleRuby.charIndex + index].characterAttributes;
-                    charAttributes.akiLeft = (leftCount - 2) / 4;
-                    charAttributes.akiRight = (leftCount - 2) / 4;
+                    var aki = (leftCount - 2) / 4;
+                    charAttributes.akiLeft = aki;
+                    charAttributes.akiRight = aki;
                     newMiddleRuby.alignment = "naka";
                 }
                 newMiddleRuby.overflow = "false";
@@ -519,18 +518,25 @@ var adjustAki = function (rubyInfos, middleRubyInfos, characters) {
         var rubyWidth = rubyInfo.size.ruby * rubyInfo.ruby.length;
         if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
             var middleRubyInfo = middleRubyInfos[index];
-            var a = rubyWidth -
+            var overflowingLength = Math.max(rubyWidth -
                 baseWidth -
                 ((0, character_1.getOverhangingRubyCount)(middleRubyInfo.beforeChar) +
                     (0, character_1.getOverhangingRubyCount)(middleRubyInfo.afterChar)) *
-                    rubyInfo.size.ruby;
-            // a;
-            // TODO: 進入・突出処理
-            // TODO: アキを調整する
-            /*const charAttributes =
-              characters[middleRubyInfos[index].charIndex + k].characterAttributes;
-            charAttributes.akiLeft = (leftCount - 2) / 4;
-            charAttributes.akiRight = (leftCount - 2) / 4;*/
+                    rubyInfo.size.ruby, 0);
+            var firstChar = characters[middleRubyInfo.charIndex];
+            var lastChar = middleRubyInfo.charIndex + rubyInfo.base.length < characters.length
+                ? characters[middleRubyInfo.charIndex + rubyInfo.base.length]
+                : null;
+            if (rubyInfo.alignment === "naka") {
+                firstChar.kerning =
+                    ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+                if (lastChar !== null) {
+                    lastChar.kerning =
+                        ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+                }
+            }
+            /*if (rubyInfo.alignment === "jis") {
+            }*/
         }
     });
 };
@@ -745,7 +751,7 @@ exports.isAlignment = isAlignment;
 // default value
 exports.defaultAlignment = "jis";
 exports.defaultSutegana = true;
-exports.defaultOverflow = "false";
+exports.defaultOverflow = "shinyu";
 exports.defaultRubySizeRatio = 0.5;
 
 

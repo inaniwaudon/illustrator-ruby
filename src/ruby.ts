@@ -83,5 +83,5 @@ export type overflow = "shinyu" | "narrow" | "false";
 // default value
 export const defaultAlignment = "jis";
 export const defaultSutegana = true;
-export const defaultOverflow: overflow = "false";
+export const defaultOverflow: overflow = "shinyu";
 export const defaultRubySizeRatio = 0.5;

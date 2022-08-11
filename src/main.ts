@@ -248,11 +248,9 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
         starts: token.starts,
         charIndex: token.charIndex,
         outlineIndex: token.outlineIndex,
+        beforeChar: token.beforeChar,
+        afterChar: token.afterChar,
       };
-      if (token.type === "jukugo-ruby" && ruby.type === "jukugo-ruby") {
-        ruby.beforeChar = token.beforeChar;
-        ruby.afterChar = token.afterChar;
-      }
       applyAttributesToMiddleRubyInfo(ruby, defined);
       rubyList.push(ruby as MiddleRubyInfo | MiddleJukugoRubyInfo);
     }
@@ -388,8 +386,9 @@ const convertJukugoRubys = (
         if (leftCount > 2) {
           const charAttributes =
             characters[middleRuby.charIndex + index].characterAttributes;
-          charAttributes.akiLeft = (leftCount - 2) / 4;
-          charAttributes.akiRight = (leftCount - 2) / 4;
+          const aki = (leftCount - 2) / 4;
+          charAttributes.akiLeft = aki;
+          charAttributes.akiRight = aki;
           newMiddleRuby.alignment = "naka";
         }
         newMiddleRuby.overflow = "false";
@@ -466,19 +465,30 @@ const adjustAki = (
 
     if (rubyInfo.overflow === "shinyu" && rubyWidth > baseWidth) {
       const middleRubyInfo = middleRubyInfos[index];
-      const a =
+      const overflowingLength = Math.max(
         rubyWidth -
-        baseWidth -
-        (getOverhangingRubyCount(middleRubyInfo.beforeChar) +
-          getOverhangingRubyCount(middleRubyInfo.afterChar)) *
-          rubyInfo.size.ruby;
-      // a;
-      // TODO: 進入・突出処理
-      // TODO: アキを調整する
-      /*const charAttributes =
-        characters[middleRubyInfos[index].charIndex + k].characterAttributes;
-      charAttributes.akiLeft = (leftCount - 2) / 4;
-      charAttributes.akiRight = (leftCount - 2) / 4;*/
+          baseWidth -
+          (getOverhangingRubyCount(middleRubyInfo.beforeChar) +
+            getOverhangingRubyCount(middleRubyInfo.afterChar)) *
+            rubyInfo.size.ruby,
+        0
+      );
+
+      const firstChar = characters[middleRubyInfo.charIndex];
+      const lastChar =
+        middleRubyInfo.charIndex + rubyInfo.base.length < characters.length
+          ? characters[middleRubyInfo.charIndex + rubyInfo.base.length]
+          : null;
+      if (rubyInfo.alignment === "naka") {
+        firstChar.kerning =
+          ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+        if (lastChar !== null) {
+          lastChar.kerning =
+            ((overflowingLength / rubyInfo.size.base) * 1000) / 2;
+        }
+      }
+      /*if (rubyInfo.alignment === "jis") {
+      }*/
     }
   });
 };
