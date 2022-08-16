@@ -7,7 +7,7 @@ Illustrator は標準でルビ機能に対応していませんが、本スク�
 **illustrator-ruby** - an Adobe Illustrator script for ruby function.
 This script implements writing Japanese ruby characters automatically, which Illustrator does not support as standard, with advanced specifications such as ruby size, alignment, penetration, and jukugo-ruby.
 
-![Illustratorにおけるスクリプトの実行画面。漢字に熟語ルビが振られている。](./thumbnail.png)
+![Illustratorにおけるスクリプトの実行画面。漢字に熟語ルビが振られている。](./thumbnail-video.gif)
 
 [解説記事](https://zenn.dev/inaniwaudon/articles/e7c11633685cf5) - スクリプトの使用方法や、ルビの基本に関して解説しています。
 
