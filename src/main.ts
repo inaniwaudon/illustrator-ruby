@@ -369,18 +369,17 @@ const convertJukugoRubys = (
         };
         applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
         let leftCount = rubyText.length;
+        // the ruby is only a single character
         if (middleRuby.ruby.length === 1) {
-          // TODO: 中にするとは限らない
           newMiddleRuby.alignment = "naka";
           leftCount -= maxRubyCounts[0] - 2;
-        } else {
-          if (index === 0 && leftCount > 2 && maxRubyCounts[0] > 2) {
+        } else if (leftCount > 2) {
+          if (index === 0 && maxRubyCounts[0] > 2) {
             newMiddleRuby.alignment = "shita";
             leftCount--;
           }
           if (
             index === middleRuby.ruby.length - 1 &&
-            leftCount > 2 &&
             maxRubyCounts[index] > 2
           ) {
             newMiddleRuby.alignment = "kata";
@@ -393,7 +392,8 @@ const convertJukugoRubys = (
           const aki = (leftCount - 2) / 4;
           charAttributes.akiLeft = aki;
           charAttributes.akiRight = aki;
-          newMiddleRuby.alignment = "naka";
+          newMiddleRuby.xOffset =
+            baseSize * aki * (newMiddleRuby.alignment == "kata" ? -1 : 1);
         }
         newMiddleRuby.overflow = "false";
         resultMiddleRubys.push(newMiddleRuby);
@@ -427,7 +427,7 @@ const createRubyInfos = (
       y: 0,
       baseWidth: 0,
       baseHeight: 0,
-      offset: { x: 0, y: 0 },
+      offset: { x: middleRubyInfo.xOffset ?? 0, y: 0 },
       sutegana: middleRubyInfo.sutegana ?? defaultSutegana,
       overflow: middleRubyInfo.overflow ?? defaultOverflow,
       size: {

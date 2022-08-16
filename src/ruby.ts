@@ -29,6 +29,7 @@ export interface MiddleCommonRubyInfo {
   yBaseOutlineIndices: number[];
   rubySize?: string;
   offset?: string;
+  xOffset?: number;
   font?: string;
   alignment?: alignment;
   sutegana?: boolean;
