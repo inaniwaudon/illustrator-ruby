@@ -561,7 +561,7 @@ const determinePositions = (
     );
     const yBasePaths = [...textOutline.compoundPathItems].slice(
       textOutline.compoundPathItems.length -
-        middleRuby.yBaseOutlineIndices.at(-1)!,
+        (middleRuby.yBaseOutlineIndices.at(-1)! + 1),
       textOutline.compoundPathItems.length - middleRuby.yBaseOutlineIndices[0]
     );
 

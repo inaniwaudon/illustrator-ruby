@@ -9,7 +9,7 @@ This script implements writing Japanese ruby characters automatically, which Ill
 
 ![Illustratorにおけるスクリプトの実行画面。漢字に熟語ルビが振られている。](./thumbnail.png)
 
-[解説記事](https://) - スクリプトの使用方法や、ルビの基本に関して解説しています。
+[解説記事](https://zenn.dev/inaniwaudon/articles/e7c11633685cf5) - スクリプトの使用方法や、ルビの基本に関して解説しています。
 
 [サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
 
@@ -63,7 +63,7 @@ Illustrator では、以下の方法でスクリプトを実行できます。
 - ファイル → スクリプト → その他スクリプト から `ruby.jsx` を選択する。
 - 以下のディレクトリに `ruby.jsx` を配置し、ファイル → スクリプト から実行する。
   - Mac: `/Applications/Adobe Illustrator CC xxxx/Presets/ja_JP/スクリプト`
-  - Windows: `C:\Program Files\Adobe\Adobe Illustrator CC `2020\Presets\Scripts
+  - Windows: `C:\Program Files\Adobe\Adobe Illustrator CC 2020\Presets\Scripts`
 - `ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップする。
 
 ## License
