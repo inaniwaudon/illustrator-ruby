@@ -120,6 +120,17 @@ exports.getOverhangingRubyCount = getOverhangingRubyCount;
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
         if (ar || !(i in from)) {
@@ -322,11 +333,9 @@ var applyAttributesToMiddleRubyInfo = function (info, attribute) {
 var applyAttributesToRubyList = function (tokens) {
     var defined = {};
     var rubyList = [];
-    for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
-        var token = tokens_1[_i];
-        // ruby
-        if (token.type === "ruby" || token.type === "jukugo-ruby") {
-            // add an information of ruby
+    var _loop_1 = function (token) {
+        // mono, group-ruby
+        if (token.type === "ruby") {
             var ruby = {
                 type: token.type,
                 ruby: token.ruby,
@@ -335,7 +344,24 @@ var applyAttributesToRubyList = function (tokens) {
                 charIndex: token.charIndex,
                 outlineIndex: token.outlineIndex,
                 beforeChar: token.beforeChar,
-                afterChar: token.afterChar
+                afterChar: token.afterChar,
+                yBaseOutlineIndices: [token.outlineIndex]
+            };
+            applyAttributesToMiddleRubyInfo(ruby, defined);
+            rubyList.push(ruby);
+        }
+        // jukugo-ruby
+        else if (token.type === "jukugo-ruby") {
+            var ruby = {
+                type: token.type,
+                ruby: token.ruby,
+                base: token.base,
+                starts: token.starts,
+                charIndex: token.charIndex,
+                outlineIndex: token.outlineIndex,
+                beforeChar: token.beforeChar,
+                afterChar: token.afterChar,
+                yBaseOutlineIndices: __spreadArray([], Array(token.base.length), true).map(function (_, index) { return token.outlineIndex + index; })
             };
             applyAttributesToMiddleRubyInfo(ruby, defined);
             rubyList.push(ruby);
@@ -366,13 +392,17 @@ var applyAttributesToRubyList = function (tokens) {
                     break;
             }
         }
+    };
+    for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
+        var token = tokens_1[_i];
+        _loop_1(token);
     }
     return rubyList;
 };
 exports.applyAttributesToRubyList = applyAttributesToRubyList;
 var convertJukugoRubys = function (middleRubys, characters) {
     var resultMiddleRubys = [];
-    var _loop_1 = function (middleRuby) {
+    var _loop_2 = function (middleRuby) {
         // jukugo-ruby
         if (middleRuby.type === "jukugo-ruby") {
             var baseSize_1 = characters[middleRuby.charIndex].characterAttributes.size;
@@ -416,18 +446,9 @@ var convertJukugoRubys = function (middleRubys, characters) {
                     (index < split_1.length && split_1[index] === 1
                         ? middleRuby.ruby[index + 1].slice(0, 1)
                         : "");
-                var newMiddleRuby = {
-                    type: "ruby",
-                    ruby: rubyText,
-                    base: middleRuby.base[index],
-                    starts: middleRuby.starts,
-                    charIndex: middleRuby.charIndex + index,
-                    outlineIndex: middleRuby.outlineIndex + index,
-                    beforeChar: index === 0 ? middleRuby.beforeChar : middleRuby.base[index - 1],
-                    afterChar: index === middleRuby.ruby.length - 1
+                var newMiddleRuby = __assign(__assign({}, middleRuby), { type: "ruby", ruby: rubyText, base: middleRuby.base[index], charIndex: middleRuby.charIndex + index, outlineIndex: middleRuby.outlineIndex + index, beforeChar: index === 0 ? middleRuby.beforeChar : middleRuby.base[index - 1], afterChar: index === middleRuby.ruby.length - 1
                         ? middleRuby.afterChar
-                        : middleRuby.base[index + 1]
-                };
+                        : middleRuby.base[index + 1] });
                 applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
                 var leftCount = rubyText.length;
                 if (middleRuby.ruby.length === 1) {
@@ -465,7 +486,7 @@ var convertJukugoRubys = function (middleRubys, characters) {
     };
     for (var _i = 0, middleRubys_1 = middleRubys; _i < middleRubys_1.length; _i++) {
         var middleRuby = middleRubys_1[_i];
-        _loop_1(middleRuby);
+        _loop_2(middleRuby);
     }
     return resultMiddleRubys;
 };
@@ -585,13 +606,15 @@ var determinePositions = function (rubyInfos, middleRubyInfos, finishTextFrame, 
         var middleRuby = middleRubyInfos[index];
         var basePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
             (middleRuby.outlineIndex + rubyInfo.base.length), textOutline.compoundPathItems.length - middleRuby.outlineIndex);
+        var yBasePaths = __spreadArray([], textOutline.compoundPathItems, true).slice(textOutline.compoundPathItems.length -
+            middleRuby.yBaseOutlineIndices[middleRuby.yBaseOutlineIndices.length - 1], textOutline.compoundPathItems.length - middleRuby.yBaseOutlineIndices[0]);
         // add an information of ruby
         rubyInfo.x = isVertical
-            ? basePaths.reduce(function (previous, path) { return previous + path.left + path.width / 2; }, 0) / basePaths.length
+            ? yBasePaths.reduce(function (previous, path) { return previous + path.left + path.width / 2; }, 0) / yBasePaths.length
             : basePaths[basePaths.length - 1].left;
         rubyInfo.y = isVertical
             ? basePaths[basePaths.length - 1].top
-            : basePaths.reduce(function (previous, path) { return previous + path.top - path.height / 2; }, 0) / basePaths.length;
+            : yBasePaths.reduce(function (previous, path) { return previous + path.top - path.height / 2; }, 0) / yBasePaths.length;
         rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
         rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
         textOutline.remove();

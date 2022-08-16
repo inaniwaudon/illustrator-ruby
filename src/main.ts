@@ -238,10 +238,9 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
   const rubyList: (MiddleRubyInfo | MiddleJukugoRubyInfo)[] = [];
 
   for (const token of tokens) {
-    // ruby
-    if (token.type === "ruby" || token.type === "jukugo-ruby") {
-      // add an information of ruby
-      const ruby: { [key in string]: any } = {
+    // mono, group-ruby
+    if (token.type === "ruby") {
+      const ruby: MiddleRubyInfo = {
         type: token.type,
         ruby: token.ruby,
         base: token.base,
@@ -250,9 +249,28 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
         outlineIndex: token.outlineIndex,
         beforeChar: token.beforeChar,
         afterChar: token.afterChar,
+        yBaseOutlineIndices: [token.outlineIndex],
       };
       applyAttributesToMiddleRubyInfo(ruby, defined);
-      rubyList.push(ruby as MiddleRubyInfo | MiddleJukugoRubyInfo);
+      rubyList.push(ruby);
+    }
+    // jukugo-ruby
+    else if (token.type === "jukugo-ruby") {
+      const ruby: MiddleJukugoRubyInfo = {
+        type: token.type,
+        ruby: token.ruby,
+        base: token.base,
+        starts: token.starts,
+        charIndex: token.charIndex,
+        outlineIndex: token.outlineIndex,
+        beforeChar: token.beforeChar,
+        afterChar: token.afterChar,
+        yBaseOutlineIndices: [...Array(token.base.length)].map(
+          (_, index) => token.outlineIndex + index
+        ),
+      };
+      applyAttributesToMiddleRubyInfo(ruby, defined);
+      rubyList.push(ruby);
     }
     // attribute
     else if (token.type === "attribute") {
@@ -350,10 +368,10 @@ const convertJukugoRubys = (
             : "");
 
         const newMiddleRuby: MiddleRubyInfo = {
+          ...middleRuby,
           type: "ruby",
           ruby: rubyText,
           base: middleRuby.base[index],
-          starts: middleRuby.starts,
           charIndex: middleRuby.charIndex + index,
           outlineIndex: middleRuby.outlineIndex + index,
           beforeChar:
@@ -555,20 +573,27 @@ const determinePositions = (
         (middleRuby.outlineIndex + rubyInfo.base.length),
       textOutline.compoundPathItems.length - middleRuby.outlineIndex
     );
+    const yBasePaths = [...textOutline.compoundPathItems].slice(
+      textOutline.compoundPathItems.length -
+        middleRuby.yBaseOutlineIndices[
+          middleRuby.yBaseOutlineIndices.length - 1
+        ],
+      textOutline.compoundPathItems.length - middleRuby.yBaseOutlineIndices[0]
+    );
 
     // add an information of ruby
     rubyInfo.x = isVertical
-      ? basePaths.reduce(
+      ? yBasePaths.reduce(
           (previous, path) => previous + path.left + path.width / 2,
           0
-        ) / basePaths.length
+        ) / yBasePaths.length
       : basePaths[basePaths.length - 1].left;
     rubyInfo.y = isVertical
       ? basePaths[basePaths.length - 1].top
-      : basePaths.reduce(
+      : yBasePaths.reduce(
           (previous, path) => previous + path.top - path.height / 2,
           0
-        ) / basePaths.length;
+        ) / yBasePaths.length;
     rubyInfo.baseWidth = basePaths[0].left + basePaths[0].width - rubyInfo.x;
     rubyInfo.baseHeight = rubyInfo.y - basePaths[0].top + basePaths[0].height;
     textOutline.remove();
