@@ -50,14 +50,10 @@ This script implements writing Japanese ruby characters automatically, which Ill
 ### 詳細設定
 - ルビのスタイル（揃え位置・サイズ・フォント等）に関して詳細設定を行います。
 - `(プロパティ|値)` の形で指定します。  
-- 指定可能なプロパティに関しては、[詳細設定](./docs/attribute.md) を参照ください。
+- 指定可能なプロパティに関しては、[詳細設定](./docs/attribute.md) をご参照ください。
 
-### スクリプトの実行
-1. ルビを振るテキストを用意し、オブジェクト名を `base` を含む名称にリネームします。
-2. もう一つテキストを作成し、1. の内容をコピーします（スタイルは同一でなくても構いません）。オブジェクト名は `finish` を含む名称にリネームします。
-3. (2) で作成したテキストに対して、先述した記法を用いてルビや詳細設定を記述します。
-6. (1), (2) で作成した 2 つのテキストフレームを選択します。
-7. Illustrator 上で `ruby.jsx` を実行します。
+### スクリプトの入手・実行
+[Releases](https://github.com/inaniwaudon/illustrator-ruby/releases) から `ruby.jsx` をダウンロードしてください。
 
 Illustrator では、以下の方法でスクリプトを実行できます。
 - ファイル → スクリプト → その他スクリプト から `ruby.jsx` を選択する。
@@ -65,6 +61,13 @@ Illustrator では、以下の方法でスクリプトを実行できます。
   - Mac: `/Applications/Adobe Illustrator CC xxxx/Presets/ja_JP/スクリプト`
   - Windows: `C:\Program Files\Adobe\Adobe Illustrator CC 2020\Presets\Scripts`
 - `ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップする。
+
+### ルビの付与
+1. ルビを振るテキストを用意し、オブジェクト名を `base` を含む名称にリネームします。
+2. もう一つテキストを作成し、1. の内容をコピーします（スタイルは同一でなくても構いません）。オブジェクト名は `finish` を含む名称にリネームします。
+3. (2) で作成したテキストに対して、先述した記法を用いてルビや詳細設定を記述します。
+6. (1), (2) で作成した 2 つのテキストフレームを選択します。
+7. Illustrator 上で `ruby.jsx` を実行します。
 
 ## License
 Copyright (c) 2022 いなにわうどん.
