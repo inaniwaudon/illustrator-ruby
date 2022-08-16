@@ -40,6 +40,7 @@ This script implements writing Japanese ruby characters automatically, which Ill
 
 # 熟語ルビ
 <越中島|えっ/ちゅう/じま>
+<思春期|し/しゅん/き>の<影響力|えい/きょう/りょく>は計り知れない
 
 # 上下にルビを振る
 [超電磁砲|レールガン|ちょう/でん/じ/ほう]
@@ -52,13 +53,18 @@ This script implements writing Japanese ruby characters automatically, which Ill
 - 指定可能なプロパティに関しては、[詳細設定](./docs/attribute.md) を参照ください。
 
 ### スクリプトの実行
-1. 2つのテキストを用意します。
-2. 片方のテキストに対して、先述した記法を用いてルビや詳細設定を記述します。
-3. 2 で編集したルビを指示するテキストを、`base` を含む名前にリネームします。
-4. もう一方のルビを振るテキストを、`finish` を含む名前にリネームします。
-5. 2 つのテキストフレームを選択します。
-6. Illustrator 上で `dist/ruby.jsx` を実行します。
-  - `dist/ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップすることでスクリプトが実行されます。
+1. ルビを振るテキストを用意し、オブジェクト名を `base` を含む名称にリネームします。
+2. もう一つテキストを作成し、1. の内容をコピーします（スタイルは同一でなくても構いません）。オブジェクト名は `finish` を含む名称にリネームします。
+3. (2) で作成したテキストに対して、先述した記法を用いてルビや詳細設定を記述します。
+6. (1), (2) で作成した 2 つのテキストフレームを選択します。
+7. Illustrator 上で `ruby.jsx` を実行します。
+
+Illustrator では、以下の方法でスクリプトを実行できます。
+- ファイル → スクリプト → その他スクリプト から `ruby.jsx` を選択する。
+- 以下のディレクトリに `ruby.jsx` を配置し、ファイル → スクリプト から実行する。
+  - Mac: `/Applications/Adobe Illustrator CC xxxx/Presets/ja_JP/スクリプト`
+  - Windows: `C:\Program Files\Adobe\Adobe Illustrator CC `2020\Presets\Scripts
+- `ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップする。
 
 ## License
 Copyright (c) 2022 いなにわうどん.
