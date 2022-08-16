@@ -9,9 +9,9 @@ This script implements writing Japanese ruby characters automatically, which Ill
 
 ![Illustratorにおけるスクリプトの実行画面。漢字に熟語ルビが振られている。](./thumbnail-video.gif)
 
-[解説記事](https://zenn.dev/inaniwaudon/articles/e7c11633685cf5) - スクリプトの使用方法や、ルビの基本に関して解説しています。
+[解説記事](https://zenn.dev/inaniwaudon/articles/e7c11633685cf5) - スクリプトの使用方法や、ルビの基本・組版例等に関して解説しています。
 
-[サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
+[組版サンプル](./docs/sample.md) - [詳細設定](./docs/attribute.md) - [FAQ](./docs/faq.md) - [Contribution](./docs/CONTRIBUTING.md)
 
 ## 主な特徴
 - モノルビ・熟語ルビ（[JLReq](https://www.w3.org/TR/jlreq/) に準拠）・グループルビに対応しています。
@@ -55,12 +55,12 @@ This script implements writing Japanese ruby characters automatically, which Ill
 ### スクリプトの入手・実行
 [Releases](https://github.com/inaniwaudon/illustrator-ruby/releases) から `ruby.jsx` をダウンロードしてください。
 
-Illustrator では、以下の方法でスクリプトを実行できます。
+Illustrator では、以下のいずれかの方法でスクリプトを実行できます。
 - ファイル → スクリプト → その他スクリプト から `ruby.jsx` を選択する。
 - 以下のディレクトリに `ruby.jsx` を配置し、ファイル → スクリプト から実行する。
   - Mac: `/Applications/Adobe Illustrator CC xxxx/Presets/ja_JP/スクリプト`
   - Windows: `C:\Program Files\Adobe\Adobe Illustrator CC 2020\Presets\Scripts`
-- `ruby.jsx` ファイルをワークスペース内にドラッグ・アンド・ドロップする。
+- `ruby.jsx` ファイルをワークスペース内にドラッグアンドドロップする。
 
 ### ルビの付与
 1. ルビを振るテキストを用意し、オブジェクト名を `base` を含む名称にリネームします。
