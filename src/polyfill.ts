@@ -93,6 +93,10 @@ Array.prototype.includes = function <U>(value: U) {
   return false;
 };
 
+Array.prototype.at = function <U>(index: number) {
+  return index >= 0 ? this[index] : this[this.length + index];
+};
+
 String.prototype.includes = function (value: string) {
   return this.split("").includes(value);
 };

@@ -241,14 +241,7 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
     // mono, group-ruby
     if (token.type === "ruby") {
       const ruby: MiddleRubyInfo = {
-        type: token.type,
-        ruby: token.ruby,
-        base: token.base,
-        starts: token.starts,
-        charIndex: token.charIndex,
-        outlineIndex: token.outlineIndex,
-        beforeChar: token.beforeChar,
-        afterChar: token.afterChar,
+        ...token,
         yBaseOutlineIndices: [token.outlineIndex],
       };
       applyAttributesToMiddleRubyInfo(ruby, defined);
@@ -257,14 +250,7 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
     // jukugo-ruby
     else if (token.type === "jukugo-ruby") {
       const ruby: MiddleJukugoRubyInfo = {
-        type: token.type,
-        ruby: token.ruby,
-        base: token.base,
-        starts: token.starts,
-        charIndex: token.charIndex,
-        outlineIndex: token.outlineIndex,
-        beforeChar: token.beforeChar,
-        afterChar: token.afterChar,
+        ...token,
         yBaseOutlineIndices: [...Array(token.base.length)].map(
           (_, index) => token.outlineIndex + index
         ),
@@ -575,9 +561,7 @@ const determinePositions = (
     );
     const yBasePaths = [...textOutline.compoundPathItems].slice(
       textOutline.compoundPathItems.length -
-        middleRuby.yBaseOutlineIndices[
-          middleRuby.yBaseOutlineIndices.length - 1
-        ],
+        middleRuby.yBaseOutlineIndices.at(-1)!,
       textOutline.compoundPathItems.length - middleRuby.yBaseOutlineIndices[0]
     );
 
@@ -587,9 +571,9 @@ const determinePositions = (
           (previous, path) => previous + path.left + path.width / 2,
           0
         ) / yBasePaths.length
-      : basePaths[basePaths.length - 1].left;
+      : basePaths.at(-1)!.left;
     rubyInfo.y = isVertical
-      ? basePaths[basePaths.length - 1].top
+      ? basePaths.at(-1)!.top
       : yBasePaths.reduce(
           (previous, path) => previous + path.top - path.height / 2,
           0

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es3",
-    "lib": ["es2017", "dom"],
+    "lib": ["es2022", "dom"],
     "module": "commonjs",
     "outDir": "dist",
     "strict": true,
