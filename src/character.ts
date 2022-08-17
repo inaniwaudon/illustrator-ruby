@@ -84,11 +84,23 @@ export const classifyCharacterClass = (character: string) => {
   if (`’”）〕］｝〉》」』】｠〙〗»〟`.includes(character)) {
     return "closingBracket";
   }
+  if ("・：；".includes(character)) {
+    return "middleDot";
+  }
   if (`。.`.includes(character)) {
     return "fullStop";
   }
   if (`、，`.includes(character)) {
     return "comma";
+  }
+  if ("―…‥〳〴〵".includes(character)) {
+    return "inseparableCharacter";
+  }
+  if ("ヽヾゝゞ々〻".includes(character)) {
+    return "iterationMark";
+  }
+  if (character === "ー") {
+    return "prolongedSoundMark";
   }
   return null;
 };
@@ -102,8 +114,10 @@ export const getOverhangingRubyCount = (character: string) => {
     "kana",
     "openingBracket",
     "closingBracket",
+    "middleDot",
     "fullStop",
     "comma",
+    "inseparableCharacter",
   ].includes(charClass)
     ? 1.0
     : 0;
