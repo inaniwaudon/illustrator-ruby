@@ -17,7 +17,7 @@ import {
   overflow,
 } from "./ruby";
 
-const convertUnit = (size: string, baseSize: number, ratio: number) => {
+export const convertUnit = (size: string, baseSize: number, ratio: number) => {
   if (isNaN(parseFloat(size))) {
     return baseSize * ratio;
   }

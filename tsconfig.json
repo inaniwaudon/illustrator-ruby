@@ -11,7 +11,7 @@
     "esModuleInterop": true,
     "skipLibCheck": false,
     "forceConsistentCasingInFileNames": true,
-    "types": ["types-for-adobe/Illustrator/2015.3", "jest"],
+    "types": ["types-for-adobe/Illustrator/2015.3", "vitest/globals"],
     "paths": {
       "*": ["./src/types.d.ts"]
     }

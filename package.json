@@ -4,7 +4,7 @@
   "scripts": {
     "build": "webpack",
     "dev": "webpack --watch",
-    "test": "jest --silent false --verbose false"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/jest": "^28.1.6",
