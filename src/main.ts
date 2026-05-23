@@ -240,8 +240,16 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
   for (const token of tokens) {
     // mono, group-ruby
     if (token.type === "ruby") {
+      // スプレッド構文はエラーを引き起こすので使用しない
       const ruby: MiddleRubyInfo = {
-        ...token,
+        type: token.type,
+        ruby: token.ruby,
+        base: token.base,
+        starts: token.starts,
+        charIndex: token.charIndex,
+        outlineIndex: token.outlineIndex,
+        beforeChar: token.beforeChar,
+        afterChar: token.afterChar,
         yBaseOutlineIndices: [token.outlineIndex],
       };
       applyAttributesToMiddleRubyInfo(ruby, defined);
@@ -249,11 +257,20 @@ export const applyAttributesToRubyList = (tokens: Token[]) => {
     }
     // jukugo-ruby
     else if (token.type === "jukugo-ruby") {
+      const yBaseOutlineIndices: number[] = [];
+      for (let i = 0; i < token.base.length; i++) {
+        yBaseOutlineIndices.push(token.outlineIndex + i);
+      }
       const ruby: MiddleJukugoRubyInfo = {
-        ...token,
-        yBaseOutlineIndices: [...Array(token.base.length)].map(
-          (_, index) => token.outlineIndex + index
-        ),
+        type: token.type,
+        ruby: token.ruby,
+        base: token.base,
+        starts: token.starts,
+        charIndex: token.charIndex,
+        outlineIndex: token.outlineIndex,
+        beforeChar: token.beforeChar,
+        afterChar: token.afterChar,
+        yBaseOutlineIndices: yBaseOutlineIndices,
       };
       applyAttributesToMiddleRubyInfo(ruby, defined);
       rubyList.push(ruby);
@@ -310,7 +327,10 @@ const convertJukugoRubys = (
         continue;
       }
 
-      const maxRubyCounts = [...Array(middleRuby.ruby.length)].fill(2);
+      const maxRubyCounts: number[] = [];
+      for (let i = 0; i < middleRuby.ruby.length; i++) {
+        maxRubyCounts.push(2);
+      }
       maxRubyCounts[0] += getOverhangingRubyCount(middleRuby.beforeChar);
       maxRubyCounts[maxRubyCounts.length - 1] += getOverhangingRubyCount(
         middleRuby.afterChar
@@ -354,10 +374,12 @@ const convertJukugoRubys = (
             : "");
 
         const newMiddleRuby: MiddleRubyInfo = {
-          ...middleRuby,
+          // RubyToken
           type: "ruby",
           ruby: rubyText,
+          // CommonRubyToken
           base: middleRuby.base[index],
+          starts: middleRuby.starts,
           charIndex: middleRuby.charIndex + index,
           outlineIndex: middleRuby.outlineIndex + index,
           beforeChar:
@@ -366,6 +388,15 @@ const convertJukugoRubys = (
             index === middleRuby.ruby.length - 1
               ? middleRuby.afterChar
               : middleRuby.base[index + 1],
+          // MiddleCommonRubyInfo
+          yBaseOutlineIndices: middleRuby.yBaseOutlineIndices,
+          rubySize: middleRuby.rubySize,
+          offset: middleRuby.offset,
+          xOffset: middleRuby.xOffset,
+          font: middleRuby.font,
+          alignment: middleRuby.alignment,
+          sutegana: middleRuby.sutegana,
+          overflow: middleRuby.overflow,
         };
         applyAttributesToMiddleRubyInfo(newMiddleRuby, middleRuby);
         let leftCount = rubyText.length;
@@ -554,15 +585,17 @@ const determinePositions = (
       finishTextFrame.duplicate() as TextFrame
     ).createOutline();
     const middleRuby = middleRubyInfos[index];
-    const basePaths = [...textOutline.compoundPathItems].slice(
-      textOutline.compoundPathItems.length -
-        (middleRuby.outlineIndex + rubyInfo.base.length),
-      textOutline.compoundPathItems.length - middleRuby.outlineIndex
+    const allPaths: CompoundPathItem[] = [];
+    for (let i = 0; i < textOutline.compoundPathItems.length; i++) {
+      allPaths.push(textOutline.compoundPathItems[i]);
+    }
+    const basePaths = allPaths.slice(
+      allPaths.length - (middleRuby.outlineIndex + rubyInfo.base.length),
+      allPaths.length - middleRuby.outlineIndex
     );
-    const yBasePaths = [...textOutline.compoundPathItems].slice(
-      textOutline.compoundPathItems.length -
-        (middleRuby.yBaseOutlineIndices.at(-1)! + 1),
-      textOutline.compoundPathItems.length - middleRuby.yBaseOutlineIndices[0]
+    const yBasePaths = allPaths.slice(
+      allPaths.length - (middleRuby.yBaseOutlineIndices.at(-1)! + 1),
+      allPaths.length - middleRuby.yBaseOutlineIndices[0]
     );
 
     // add an information of ruby

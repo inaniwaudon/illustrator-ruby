@@ -2,18 +2,18 @@
   "name": "illustrator-ruby",
   "version": "1.0.0",
   "scripts": {
-    "build": "webpack",
-    "dev": "webpack --watch",
+    "build": "vite build",
+    "dev": "vite build --watch",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-env": "^7.29.5",
     "glob": "^13.0.6",
-    "vitest": "^3.2.2",
-    "ts-loader": "^9.5.7",
     "types-for-adobe": "^7.2.5",
     "typescript": "^6.0.3",
-    "webpack": "^5.107.1",
-    "webpack-cli": "^7.0.2"
+    "vite": "^8.0.14",
+    "vitest": "^3.2.2"
   },
   "dependencies": {}
 }
