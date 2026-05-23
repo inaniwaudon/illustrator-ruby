@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
-    "target": "es3",
+    "target": "es5",
     "lib": ["es2022", "dom"],
     "module": "commonjs",
+    "rootDir": "./src",
     "outDir": "dist",
     "strict": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["types-for-adobe/Illustrator/2015.3", "vitest/globals"],
     "paths": {

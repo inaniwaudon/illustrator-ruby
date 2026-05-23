@@ -66,7 +66,8 @@ Array.prototype.some = function <U>(
   return false;
 };
 
-Array.prototype.every = function <U>(
+(Array.prototype.every as any) = function <U>(
+  this: any,
   predicate: (value: U, index: number, array: U[]) => boolean
 ) {
   let result = true;
